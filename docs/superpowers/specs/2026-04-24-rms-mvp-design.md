@@ -95,14 +95,15 @@ Per the PDF blueprint:
 | Admin / cashier / kitchen web | Django session + CSRF | `django.contrib.auth` | HttpOnly cookie |
 | Customer API | JWT (access 15 min, refresh 7 days, rotation + blacklist) | `djangorestframework-simplejwt` | Client-side (future mobile: secure storage) |
 | KDS WebSocket | Session cookie | `channels.auth.AuthMiddlewareStack` | — |
-| Customer order-track WebSocket | JWT passed as `?token=...` (first-msg handshake) | custom middleware | — |
+| Customer order-track WebSocket | JWT in query string (`?token=<access>`) validated by custom `JwtAuthMiddleware` before `accept()` | custom middleware | — |
 
 ### 4.5 Role-gating
 
 - Custom middleware `AllowedRoleForPath` that maps URL prefixes to allowed `Role` sets:
-  - `/dashboard/` → `{ADMIN, MANAGER}`
-  - `/cashier/` → `{CASHIER, MANAGER, ADMIN}`
-  - `/kitchen/` → `{KITCHEN, MANAGER, ADMIN}`
+  - `/dashboard/` → `{ADMIN}`
+  - `/cashier/` → `{CASHIER}`
+  - `/kitchen/` → `{KITCHEN}`
+  - (ADMIN does NOT automatically access cashier/kitchen URLs; admin uses `/dashboard/` only. If that proves inconvenient in dev, we widen via a small change — but the default is strict per your "no one can open another type's dashboard" requirement.)
 - DRF permission class `HasRole` for API viewsets
 - WS consumer checks `self.scope["user"].role` before `accept()`; closes with code 4401 otherwise
 - Verified by E2E tests in phase 1 and every phase after (regression)
@@ -139,6 +140,8 @@ No `payments/`, `loyalty/`, `analytics/` apps in MVP (they're post-MVP phases).
 ## 6. Phases (vertical slices)
 
 > **Rule for every phase:** migrations green, unit + integration tests green, phase-specific Playwright E2E suite green, seed data loads cleanly, README updated.
+>
+> **Planning note:** each phase gets its own implementation plan (written via `superpowers:writing-plans`). We'll start by writing the plan for **Phase 1** next. Subsequent phases are planned at the *end* of the preceding phase so the plan reflects what actually got built, not what we predicted.
 
 ### Phase 1 — Foundation & Role-Gated Auth (week 1)
 
@@ -192,7 +195,7 @@ Orders can be placed. Kitchen page still static-refresh (real-time arrives in ph
   - Grid of available menu items (big touch buttons, image + name + price)
   - Cart sidebar with qty steppers and modifier pickers
   - Order-type tabs: dine-in (table picker) / takeaway (phone) / delivery (phone + address)
-  - Live totals (subtotal + 14% VAT placeholder + total)
+  - Live totals (subtotal + 14% VAT + total)
   - "Confirm" button (POST to a cashier view, which calls `create_order` + `confirm_order`)
   - "Mark paid" on the order detail page
 - Kitchen page (`/kitchen/`): lists `Order.status IN (confirmed, preparing, ready)` — **full-page refresh only** (upgraded in Phase 4)
@@ -315,7 +318,7 @@ ruff check → pytest unit → pytest integration → docker compose up -d → p
 ## 9. Open points (resolved at implementation time, not now)
 
 - Secret/env management for dev — `.env` file (gitignored), committed `.env.example`
-- Tax rate — start at 14% Egypt VAT, make admin-configurable via a `SiteSettings` model in phase 2 or 3
+- Tax rate — fixed at 14% Egypt VAT in Phase 3 (hard-coded in settings); admin-configurable `SiteSettings` model deferred to a post-MVP spec
 - Receipt PDF vs HTML — HTML is enough for MVP; PDF export deferred
 - Customer delivery fee — not in MVP scope (flat zero)
 - Which Python/uv — Python 3.12, `uv` for dependency management (fast, 2026 standard)
