@@ -29,7 +29,7 @@ class TestUserModel:
         user = User.objects.create_user(
             email="Alice@EXAMPLE.com", password="s3cret-pw", role=Role.CUSTOMER
         )
-        assert user.email == "Alice@example.com"  # Django normalizes domain only
+        assert user.email == "alice@example.com"  # full lowercase (carry-over fix from task-4 review)
 
     def test_default_role_is_customer(self):
         user = User.objects.create_user(email="bob@example.com", password="s3cret-pw")
