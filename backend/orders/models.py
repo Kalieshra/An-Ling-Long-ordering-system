@@ -79,7 +79,10 @@ class Order(models.Model):
         max_length=10, choices=Status.choices, default=Status.DRAFT, db_index=True
     )
     payment_status = models.CharField(
-        max_length=10, choices=PaymentStatus.choices, default=PaymentStatus.UNPAID
+        max_length=10,
+        choices=PaymentStatus.choices,
+        default=PaymentStatus.UNPAID,
+        db_index=True,
     )
 
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
