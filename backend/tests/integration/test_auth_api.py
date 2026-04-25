@@ -118,3 +118,97 @@ class TestLogin:
         )
         assert resp.status_code == 200
         assert "access" in resp.data
+
+
+@pytest.mark.django_db
+class TestRefresh:
+    url = "/api/v1/auth/refresh/"
+
+    def _login(self, client):
+        User.objects.create_user(email="r@example.com", password="s3cret-pw-long")
+        resp = client.post(
+            "/api/v1/auth/login/",
+            {"email": "r@example.com", "password": "s3cret-pw-long"},
+            format="json",
+        )
+        return resp.data["refresh"], resp.data["access"]
+
+    def test_refresh_rotates_tokens(self, client):
+        refresh, _access = self._login(client)
+        resp = client.post(self.url, {"refresh": refresh}, format="json")
+        assert resp.status_code == 200
+        assert "access" in resp.data
+        assert "refresh" in resp.data
+        assert resp.data["refresh"] != refresh
+
+    def test_old_refresh_blacklisted_after_rotation(self, client):
+        refresh, _access = self._login(client)
+        first = client.post(self.url, {"refresh": refresh}, format="json")
+        assert first.status_code == 200
+        second = client.post(self.url, {"refresh": refresh}, format="json")
+        assert second.status_code == 401
+
+
+@pytest.mark.django_db
+class TestLogout:
+    url = "/api/v1/auth/logout/"
+
+    def _login(self, client):
+        User.objects.create_user(email="o@example.com", password="s3cret-pw-long")
+        resp = client.post(
+            "/api/v1/auth/login/",
+            {"email": "o@example.com", "password": "s3cret-pw-long"},
+            format="json",
+        )
+        return resp.data["refresh"], resp.data["access"]
+
+    def test_logout_blacklists_refresh(self, client):
+        refresh, access = self._login(client)
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+        resp = client.post(self.url, {"refresh": refresh}, format="json")
+        assert resp.status_code == 205
+        resp2 = client.post("/api/v1/auth/refresh/", {"refresh": refresh}, format="json")
+        assert resp2.status_code == 401
+
+    def test_logout_requires_auth(self, client):
+        resp = client.post(self.url, {"refresh": "whatever"}, format="json")
+        assert resp.status_code == 401
+
+
+@pytest.mark.django_db
+class TestPasswordChange:
+    url = "/api/v1/auth/password/change/"
+
+    def test_changes_password(self, client):
+        user = User.objects.create_user(email="p@example.com", password="old-pw-long-enough")
+        login = client.post(
+            "/api/v1/auth/login/",
+            {"email": "p@example.com", "password": "old-pw-long-enough"},
+            format="json",
+        )
+        access = login.data["access"]
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+        resp = client.post(
+            self.url,
+            {"old_password": "old-pw-long-enough", "new_password": "new-pw-long-enough"},
+            format="json",
+        )
+        assert resp.status_code == 200
+        user.refresh_from_db()
+        assert user.check_password("new-pw-long-enough")
+
+    def test_rejects_wrong_old_password(self, client):
+        User.objects.create_user(email="p@example.com", password="old-pw-long-enough")
+        login = client.post(
+            "/api/v1/auth/login/",
+            {"email": "p@example.com", "password": "old-pw-long-enough"},
+            format="json",
+        )
+        access = login.data["access"]
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+        resp = client.post(
+            self.url,
+            {"old_password": "wrong", "new_password": "new-pw-long-enough"},
+            format="json",
+        )
+        assert resp.status_code == 400

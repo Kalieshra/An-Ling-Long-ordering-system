@@ -54,3 +54,15 @@ class LoginSerializer(serializers.Serializer):
         # full address). DRF's EmailField does not lowercase, so without this hook
         # logging in with any capital letters would fail to match the stored row.
         return User.objects.normalize_email(value).lower()
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate_new_password(self, value):
+        try:
+            validate_password(value)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(list(e.messages)) from e
+        return value
