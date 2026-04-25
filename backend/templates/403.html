@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Forbidden — RMS{% endblock %}
+{% block content %}
+<div class="alert alert-warning">
+  <h2>403 — Forbidden</h2>
+  <p>This area requires the <strong>{{ required_role|default:"another" }}</strong> role.</p>
+  <p>You are signed in as <strong>{{ user_role|default:"anonymous" }}</strong>.</p>
+  <a href="/login/" class="btn btn-primary">Sign in as a different user</a>
+</div>
+{% endblock %}

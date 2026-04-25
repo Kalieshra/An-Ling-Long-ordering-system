@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}RMS{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@coreui/coreui@5.1.2/dist/css/coreui.min.css">
+    <link rel="stylesheet" href="/static/css/rms.css">
+</head>
+<body>
+    {% block header %}
+    {% if request.user.is_authenticated %}
+    <nav class="navbar navbar-light bg-light px-4">
+        <span>RMS — {{ request.user.role|capfirst }}</span>
+        <span>
+            {{ request.user.email }}
+            <form method="post" action="/logout/" style="display:inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-link btn-sm">Logout</button>
+            </form>
+        </span>
+    </nav>
+    {% endif %}
+    {% endblock %}
+    <main class="container py-4">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
