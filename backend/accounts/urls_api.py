@@ -1,3 +1,9 @@
-"""Placeholder. Task 5+ will implement API auth endpoints."""
+"""Customer auth API. Other routes (refresh/logout/password-change) added in Task 6."""
+from django.urls import path
 
-urlpatterns: list = []
+from .views_api import LoginView, RegisterView
+
+urlpatterns = [
+    path("register/", RegisterView.as_view(), name="auth-register"),
+    path("login/", LoginView.as_view(), name="auth-login"),
+]
