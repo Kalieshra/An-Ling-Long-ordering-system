@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     # local
     "accounts",
     "menu",
+    "orders",
 ]
 
 MIDDLEWARE = [
@@ -140,3 +141,9 @@ STAFF_PATH_ROLES = {
 }
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"  # overridden by role-redirect view
+
+# Phase 3: Egypt VAT — hard-coded in MVP. A future SiteSettings model will
+# move this to admin-configurable storage (deferred per spec §9).
+from decimal import Decimal  # noqa: E402
+
+RMS_TAX_RATE = Decimal("0.14")
