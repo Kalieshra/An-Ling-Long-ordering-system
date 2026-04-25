@@ -156,3 +156,32 @@ class TestListAndRetrieve:
         resp = auth_client.get(f"/api/v1/orders/{o.uuid}/")
         assert resp.status_code == 200
         assert resp.data["number"] == "mine-1"
+
+
+class TestCancel:
+    def test_cancel_pending_works(self, auth_client, customer):
+        o = Order.objects.create(
+            customer=customer, order_type=Order.Type.TAKEAWAY,
+            status=Order.Status.PENDING, number="mine-1",
+        )
+        resp = auth_client.patch(f"/api/v1/orders/{o.uuid}/cancel/")
+        assert resp.status_code == 200
+        o.refresh_from_db()
+        assert o.status == Order.Status.CANCELLED
+
+    def test_cancel_after_confirmed_409(self, auth_client, customer):
+        o = Order.objects.create(
+            customer=customer, order_type=Order.Type.TAKEAWAY,
+            status=Order.Status.CONFIRMED, number="mine-2",
+        )
+        resp = auth_client.patch(f"/api/v1/orders/{o.uuid}/cancel/")
+        assert resp.status_code == 409
+
+    def test_cancel_other_customer_404(self, auth_client):
+        other = Order.objects.create(
+            order_type=Order.Type.TAKEAWAY,
+            status=Order.Status.PENDING,
+            number="other-1",
+        )
+        resp = auth_client.patch(f"/api/v1/orders/{other.uuid}/cancel/")
+        assert resp.status_code == 404
