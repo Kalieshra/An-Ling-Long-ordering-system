@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential libpq-dev curl \
     && rm -rf /var/lib/apt/lists/*
-RUN pip install uv==0.5.*
+RUN pip install uv==0.11.*
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
