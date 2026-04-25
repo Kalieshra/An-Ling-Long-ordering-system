@@ -15,6 +15,30 @@ Production-oriented RMS for the Egyptian market: dashboards for **admin / cashie
 | Playwright E2E role-gating suite | ✓ |
 | GitHub Actions CI | ✓ |
 
+## Phase 2 — complete ✅
+
+| Area | Status |
+|---|---|
+| 6 menu models with `pg_trgm` GIN trigram index | ✓ |
+| Public read-only API: `/api/v1/menu/{categories,items,items/<id>}/` (paginated, filtered, fuzzy-searchable) | ✓ |
+| Dashboard CRUD UI under `/dashboard/menu/{categories,items,inventory}/` | ✓ |
+| Django admin back-door with inline modifier groups + recipe rows | ✓ |
+| Image upload (≤ 5 MB) | ✓ |
+| Phase 2 Playwright suite (5 tests) + Phase 1 tests still green | ✓ |
+
+### Menu API examples
+
+```
+# Categories (anonymous)
+curl http://localhost:18000/api/v1/menu/categories/
+
+# Items, filtered + paginated
+curl 'http://localhost:18000/api/v1/menu/items/?category=pizzas&type=dish&search=marg&ordering=price'
+
+# Item detail (with nested modifier groups)
+curl http://localhost:18000/api/v1/menu/items/1/
+```
+
 ## Local setup
 
 Prereqs: Docker 24+, Docker Compose v2, [uv](https://docs.astral.sh/uv/), Python 3.12+.
@@ -117,7 +141,6 @@ ADMIN is **strictly limited** to `/dashboard/` per the design. Admins do not aut
 
 | Phase | Goal |
 |---|---|
-| 2 | Menu management — Category, MenuItem (dish/drink/combo), Modifier, Ingredient. Admin CRUD + read-only customer API. |
 | 3 | Orders — Cashier POS UI, order types (dine-in / takeaway / delivery), customer API. Kitchen page polled. |
 | 4 | Real-time KDS via Django Channels + Redis (WebSocket). |
 | 5 | Customer API polish — profile, featured menu, throttling, OpenAPI schema. |
