@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Delete menu item — RMS{% endblock %}
+{% block content %}
+<h1>Delete "{{ object.name }}"?</h1>
+<p class="text-muted">This deletes modifier groups and recipe rows for this item.</p>
+<form method="post">
+  {% csrf_token %}
+  <button class="btn btn-danger" type="submit">Delete permanently</button>
+  <a class="btn btn-link" href="{% url 'menu:menuitem-list' %}">Cancel</a>
+</form>
+{% endblock %}

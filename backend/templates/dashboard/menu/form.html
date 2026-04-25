@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Edit{% else %}New{% endif %} menu item — RMS{% endblock %}
+{% block content %}
+<h1>{% if object %}Edit{% else %}New{% endif %} menu item</h1>
+<form method="post" enctype="multipart/form-data" class="card card-body">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  {% for field in form %}
+    <div class="mb-3">
+      <label class="form-label">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}<div class="text-danger small">{{ field.errors|striptags }}</div>{% endif %}
+    </div>
+  {% endfor %}
+
+  <hr>
+  <h4>Modifier groups</h4>
+  {{ groups_formset.management_form }}
+  {{ groups_formset.non_form_errors }}
+  {% for group_form in groups_formset %}
+    <div class="card card-body mb-3">
+      {{ group_form.id }}
+      <div class="row g-2">
+        {% for f in group_form.visible_fields %}
+          <div class="col">
+            <label class="form-label small">{{ f.label }}</label>
+            {{ f }}
+            {% if f.errors %}<div class="text-danger small">{{ f.errors|striptags }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endfor %}
+
+  <div>
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% url 'menu:menuitem-list' %}" class="btn btn-link">Cancel</a>
+  </div>
+</form>
+<p class="small text-muted mt-3">
+  To add modifier <strong>options</strong> within a group, save the item first, then edit the group from the Django admin (option editing is part of the simple-form scope).
+</p>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Menu items — RMS{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1>Menu items</h1>
+  <a class="btn btn-primary" href="{% url 'menu:menuitem-new' %}">New item</a>
+</div>
+<table class="table">
+  <thead>
+    <tr><th>Name</th><th>Category</th><th>Type</th><th>Price</th><th>Available</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr>
+      <td>{{ item.name }}</td>
+      <td>{{ item.category.name }}</td>
+      <td>{{ item.get_item_type_display }}</td>
+      <td>{{ item.price }} EGP</td>
+      <td>
+        <form method="post" action="{% url 'menu:menuitem-toggle' item.pk %}" style="display:inline">
+          {% csrf_token %}
+          <button class="btn btn-sm {% if item.is_available %}btn-success{% else %}btn-outline-secondary{% endif %}" type="submit">
+            {% if item.is_available %}&#10003; on{% else %}&#10005; off{% endif %}
+          </button>
+        </form>
+      </td>
+      <td>
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'menu:menuitem-edit' item.pk %}">Edit</a>
+        <a class="btn btn-sm btn-outline-danger" href="{% url 'menu:menuitem-delete' item.pk %}">Delete</a>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6" class="text-muted text-center">No menu items yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
