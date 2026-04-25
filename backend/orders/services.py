@@ -10,9 +10,10 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 from menu.models import MenuItem, ModifierOption
 
-from .exceptions import OrderValidationError
+from .exceptions import InvalidTransition, OrderValidationError
 from .models import Order, OrderItem, OrderItemModifier, Table
 
 CENTS = Decimal("0.01")
@@ -169,4 +170,66 @@ def create_order(
                 order_item=oi, option_id=m["option_id"], price_delta=m["price_delta"]
             )
 
+    return order
+
+
+_ALLOWED_TRANSITIONS: dict[str, set[str]] = {
+    Order.Status.DRAFT: {Order.Status.CONFIRMED, Order.Status.CANCELLED},
+    Order.Status.PENDING: {Order.Status.CONFIRMED, Order.Status.CANCELLED},
+    Order.Status.CONFIRMED: {Order.Status.PREPARING},
+    Order.Status.PREPARING: {Order.Status.READY, Order.Status.CANCELLED},
+    Order.Status.READY: {Order.Status.SERVED},
+    Order.Status.SERVED: set(),
+    Order.Status.CANCELLED: set(),
+}
+
+
+def _assert_transition(order: Order, target: str) -> None:
+    if target not in _ALLOWED_TRANSITIONS.get(order.status, set()):
+        raise InvalidTransition(
+            f"Cannot move order {order.number} from {order.status} to {target}."
+        )
+
+
+@transaction.atomic
+def confirm_order(order: Order) -> Order:
+    """Move a DRAFT or PENDING order to CONFIRMED. Phase 4 will broadcast here."""
+    _assert_transition(order, Order.Status.CONFIRMED)
+    order.status = Order.Status.CONFIRMED
+    order.confirmed_at = timezone.now()
+    order.save(update_fields=["status", "confirmed_at"])
+    return order
+
+
+@transaction.atomic
+def mark_paid_cash(order: Order, *, cashier) -> Order:
+    if order.payment_status == Order.PaymentStatus.PAID:
+        raise InvalidTransition(f"Order {order.number} is already paid.")
+    order.payment_status = Order.PaymentStatus.PAID
+    order.cashier = cashier
+    order.save(update_fields=["payment_status", "cashier"])
+    return order
+
+
+@transaction.atomic
+def cancel_order(order: Order) -> Order:
+    _assert_transition(order, Order.Status.CANCELLED)
+    order.status = Order.Status.CANCELLED
+    order.save(update_fields=["status"])
+    return order
+
+
+@transaction.atomic
+def transition_status(order: Order, target: str, *, by_user) -> Order:
+    """Generic kitchen-driven state advance. Sets ready_at / served_at when relevant."""
+    _assert_transition(order, target)
+    order.status = target
+    fields = ["status"]
+    if target == Order.Status.READY:
+        order.ready_at = timezone.now()
+        fields.append("ready_at")
+    elif target == Order.Status.SERVED:
+        order.served_at = timezone.now()
+        fields.append("served_at")
+    order.save(update_fields=fields)
     return order

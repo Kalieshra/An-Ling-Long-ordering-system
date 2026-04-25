@@ -3,9 +3,15 @@ from decimal import Decimal
 
 import pytest
 from menu.models import Category, MenuItem, ModifierGroup, ModifierOption
-from orders.exceptions import OrderValidationError
+from orders.exceptions import InvalidTransition, OrderValidationError
 from orders.models import Order
-from orders.services import create_order
+from orders.services import (
+    cancel_order,
+    confirm_order,
+    create_order,
+    mark_paid_cash,
+    transition_status,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -208,3 +214,103 @@ class TestCreateOrderValidation:
                 cashier=cashier_user,
                 order_type=Order.Type.TAKEAWAY,
             )
+
+
+@pytest.fixture
+def draft_order(margherita, cashier_user):
+    return create_order(
+        cart=[_line(margherita, 1)],
+        cashier=cashier_user,
+        order_type=Order.Type.TAKEAWAY,
+    )
+
+
+class TestConfirmOrder:
+    def test_draft_to_confirmed_sets_timestamp(self, draft_order):
+        confirm_order(draft_order)
+        draft_order.refresh_from_db()
+        assert draft_order.status == Order.Status.CONFIRMED
+        assert draft_order.confirmed_at is not None
+
+    def test_pending_can_also_be_confirmed(self, margherita, customer_user):
+        order = create_order(
+            cart=[_line(margherita, 1)],
+            customer=customer_user,
+            order_type=Order.Type.TAKEAWAY,
+            initial_status=Order.Status.PENDING,
+        )
+        confirm_order(order)
+        order.refresh_from_db()
+        assert order.status == Order.Status.CONFIRMED
+
+    def test_confirming_already_confirmed_raises(self, draft_order):
+        confirm_order(draft_order)
+        with pytest.raises(InvalidTransition):
+            confirm_order(draft_order)
+
+
+class TestMarkPaidCash:
+    def test_marks_paid_and_records_cashier(self, draft_order, cashier_user):
+        confirm_order(draft_order)
+        mark_paid_cash(draft_order, cashier=cashier_user)
+        draft_order.refresh_from_db()
+        assert draft_order.payment_status == Order.PaymentStatus.PAID
+        assert draft_order.cashier == cashier_user
+
+    def test_cannot_mark_paid_twice(self, draft_order, cashier_user):
+        confirm_order(draft_order)
+        mark_paid_cash(draft_order, cashier=cashier_user)
+        with pytest.raises(InvalidTransition):
+            mark_paid_cash(draft_order, cashier=cashier_user)
+
+
+class TestCancelOrder:
+    def test_cancel_draft_works(self, draft_order):
+        cancel_order(draft_order)
+        draft_order.refresh_from_db()
+        assert draft_order.status == Order.Status.CANCELLED
+
+    def test_cancel_pending_works(self, margherita, customer_user):
+        order = create_order(
+            cart=[_line(margherita, 1)],
+            customer=customer_user,
+            order_type=Order.Type.TAKEAWAY,
+            initial_status=Order.Status.PENDING,
+        )
+        cancel_order(order)
+        order.refresh_from_db()
+        assert order.status == Order.Status.CANCELLED
+
+    def test_cannot_cancel_confirmed(self, draft_order):
+        confirm_order(draft_order)
+        with pytest.raises(InvalidTransition):
+            cancel_order(draft_order)
+
+
+class TestTransitionStatus:
+    def test_confirmed_to_preparing(self, draft_order, cashier_user):
+        confirm_order(draft_order)
+        transition_status(draft_order, Order.Status.PREPARING, by_user=cashier_user)
+        draft_order.refresh_from_db()
+        assert draft_order.status == Order.Status.PREPARING
+
+    def test_preparing_to_ready_sets_ready_at(self, draft_order, cashier_user):
+        confirm_order(draft_order)
+        transition_status(draft_order, Order.Status.PREPARING, by_user=cashier_user)
+        transition_status(draft_order, Order.Status.READY, by_user=cashier_user)
+        draft_order.refresh_from_db()
+        assert draft_order.status == Order.Status.READY
+        assert draft_order.ready_at is not None
+
+    def test_ready_to_served_sets_served_at(self, draft_order, cashier_user):
+        confirm_order(draft_order)
+        transition_status(draft_order, Order.Status.PREPARING, by_user=cashier_user)
+        transition_status(draft_order, Order.Status.READY, by_user=cashier_user)
+        transition_status(draft_order, Order.Status.SERVED, by_user=cashier_user)
+        draft_order.refresh_from_db()
+        assert draft_order.served_at is not None
+
+    def test_skipping_states_raises(self, draft_order, cashier_user):
+        confirm_order(draft_order)
+        with pytest.raises(InvalidTransition):
+            transition_status(draft_order, Order.Status.READY, by_user=cashier_user)
