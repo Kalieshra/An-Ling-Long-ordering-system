@@ -1,8 +1,7 @@
 """Unit tests for the custom User model and Role enum."""
 import pytest
-from django.db import IntegrityError
-
 from accounts.models import Role, User
+from django.db import IntegrityError
 
 
 @pytest.mark.django_db
