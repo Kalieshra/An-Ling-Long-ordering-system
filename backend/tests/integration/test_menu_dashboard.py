@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 from accounts.models import Role, User
 from django.test import Client
-from menu.models import Category, MenuItem
+from menu.models import Category, Ingredient, MenuItem
 
 
 @pytest.fixture
@@ -130,4 +130,33 @@ class TestMenuItemCRUD:
         c = Client()
         c.force_login(user)
         resp = c.get("/dashboard/menu/items/new/")
+        assert resp.status_code == 403
+
+
+@pytest.mark.django_db
+class TestIngredientCRUD:
+    def test_admin_can_list_with_low_stock_highlight(self, admin_client):
+        Ingredient.objects.create(
+            name="Tomato", unit="kg",
+            stock_qty=Decimal("0.2"), low_threshold=Decimal("1.0"),
+        )
+        resp = admin_client.get("/dashboard/menu/inventory/")
+        assert resp.status_code == 200
+        assert b"Tomato" in resp.content
+        assert b"LOW" in resp.content
+
+    def test_admin_can_create(self, admin_client):
+        resp = admin_client.post(
+            "/dashboard/menu/inventory/new/",
+            {
+                "name": "Cheese", "unit": "kg",
+                "stock_qty": "5.0", "low_threshold": "1.0",
+                "cost_per_unit": "100.0000", "supplier": "",
+            },
+        )
+        assert resp.status_code == 302
+        assert Ingredient.objects.filter(name="Cheese").exists()
+
+    def test_cashier_blocked(self, cashier_client):
+        resp = cashier_client.get("/dashboard/menu/inventory/")
         assert resp.status_code == 403

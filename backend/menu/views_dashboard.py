@@ -12,8 +12,8 @@ from django.views.generic import (
     View,
 )
 
-from .forms import CategoryForm, MenuItemForm, ModifierGroupFormSet
-from .models import Category, MenuItem
+from .forms import CategoryForm, IngredientForm, MenuItemForm, ModifierGroupFormSet
+from .models import Category, Ingredient, MenuItem
 
 
 class _DashboardMixin(LoginRequiredMixin):
@@ -107,3 +107,30 @@ class MenuItemToggleAvailableView(_DashboardMixin, View):
         item.is_available = not item.is_available
         item.save(update_fields=["is_available"])
         return redirect("menu:menuitem-list")
+
+
+class IngredientListView(_DashboardMixin, ListView):
+    model = Ingredient
+    template_name = "dashboard/inventory/list.html"
+    context_object_name = "ingredients"
+    paginate_by = 50
+
+
+class IngredientCreateView(_DashboardMixin, CreateView):
+    model = Ingredient
+    form_class = IngredientForm
+    template_name = "dashboard/inventory/form.html"
+    success_url = reverse_lazy("menu:ingredient-list")
+
+
+class IngredientUpdateView(_DashboardMixin, UpdateView):
+    model = Ingredient
+    form_class = IngredientForm
+    template_name = "dashboard/inventory/form.html"
+    success_url = reverse_lazy("menu:ingredient-list")
+
+
+class IngredientDeleteView(_DashboardMixin, DeleteView):
+    model = Ingredient
+    template_name = "dashboard/inventory/confirm_delete.html"
+    success_url = reverse_lazy("menu:ingredient-list")

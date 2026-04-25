@@ -16,4 +16,9 @@ urlpatterns = [
     path("items/<int:pk>/edit/", v.MenuItemUpdateView.as_view(), name="menuitem-edit"),
     path("items/<int:pk>/toggle/", v.MenuItemToggleAvailableView.as_view(), name="menuitem-toggle"),
     path("items/<int:pk>/delete/", v.MenuItemDeleteView.as_view(), name="menuitem-delete"),
+    # Inventory
+    path("inventory/", v.IngredientListView.as_view(), name="ingredient-list"),
+    path("inventory/new/", v.IngredientCreateView.as_view(), name="ingredient-new"),
+    path("inventory/<int:pk>/edit/", v.IngredientUpdateView.as_view(), name="ingredient-edit"),
+    path("inventory/<int:pk>/delete/", v.IngredientDeleteView.as_view(), name="ingredient-delete"),
 ]

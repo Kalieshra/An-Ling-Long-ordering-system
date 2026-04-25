@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Inventory — RMS{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1>Inventory</h1>
+  <a class="btn btn-primary" href="{% url 'menu:ingredient-new' %}">New ingredient</a>
+</div>
+<table class="table">
+  <thead>
+    <tr><th>Name</th><th>Unit</th><th>Stock</th><th>Low threshold</th><th>Status</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for ing in ingredients %}
+    <tr class="{% if ing.is_low %}table-warning{% endif %}">
+      <td>{{ ing.name }}</td>
+      <td>{{ ing.get_unit_display }}</td>
+      <td>{{ ing.stock_qty }}</td>
+      <td>{{ ing.low_threshold }}</td>
+      <td>{% if ing.is_low %}<strong>LOW</strong>{% else %}OK{% endif %}</td>
+      <td>
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'menu:ingredient-edit' ing.pk %}">Edit</a>
+        <a class="btn btn-sm btn-outline-danger" href="{% url 'menu:ingredient-delete' ing.pk %}">Delete</a>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6" class="text-muted text-center">No ingredients yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
