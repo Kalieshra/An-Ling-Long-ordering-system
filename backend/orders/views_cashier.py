@@ -130,3 +130,21 @@ class ReceiptView(_CashierMixin, View):
             "order": order,
             "snapshot_items": snapshot_items,
         })
+
+
+class PendingListView(_CashierMixin, View):
+    def get(self, request):
+        pending = Order.objects.pending().order_by("created_at")
+        return render(request, "cashier/pending_list.html", {"orders": pending})
+
+
+class ConfirmPendingView(_CashierMixin, View):
+    http_method_names = ["post"]
+
+    def post(self, request, uuid):
+        order = get_object_or_404(Order, uuid=uuid, status=Order.Status.PENDING)
+        try:
+            confirm_order(order)
+        except InvalidTransition:
+            pass
+        return redirect("cashier:pending-list")

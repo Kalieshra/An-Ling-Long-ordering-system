@@ -144,3 +144,38 @@ class TestCashierOrderDetailAndPay:
         assert rcp.status_code == 200
         assert b"Margherita" in rcp.content
         assert b"Total" in rcp.content
+
+
+@pytest.fixture
+def customer_user(django_user_model):
+    return django_user_model.objects.create_user(
+        email="bob@x.com", password="bob-pw-long-enough", role="customer"
+    )
+
+
+class TestPendingPanel:
+    def test_pending_list_shows_customer_orders(self, cashier_client, customer_user, margherita):
+        # customer-API style: create order in PENDING
+        from orders.services import create_order
+        order = create_order(
+            cart=[{"menu_item": margherita.id, "quantity": 1, "modifiers": []}],
+            customer=customer_user,
+            order_type=Order.Type.TAKEAWAY,
+            initial_status=Order.Status.PENDING,
+        )
+        resp = cashier_client.get("/cashier/orders/pending/")
+        assert resp.status_code == 200
+        assert order.number.encode() in resp.content
+
+    def test_confirm_pending_transitions_to_confirmed(self, cashier_client, customer_user, margherita):
+        from orders.services import create_order
+        order = create_order(
+            cart=[{"menu_item": margherita.id, "quantity": 1, "modifiers": []}],
+            customer=customer_user,
+            order_type=Order.Type.TAKEAWAY,
+            initial_status=Order.Status.PENDING,
+        )
+        resp = cashier_client.post(f"/cashier/orders/{order.uuid}/confirm/")
+        assert resp.status_code == 302
+        order.refresh_from_db()
+        assert order.status == Order.Status.CONFIRMED

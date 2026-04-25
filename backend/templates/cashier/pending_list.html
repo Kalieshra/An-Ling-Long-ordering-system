@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Pending customer orders — Cashier{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center">
+  <h1>Pending customer orders</h1>
+  <a href="{% url 'cashier:home' %}" class="btn btn-link">← back to POS</a>
+</div>
+{% if orders %}
+<table class="table">
+  <thead><tr><th>Number</th><th>Type</th><th>Customer</th><th>Total</th><th>Created</th><th></th></tr></thead>
+  <tbody>
+    {% for o in orders %}
+    <tr>
+      <td>{{ o.number }}</td>
+      <td>{{ o.get_order_type_display }}</td>
+      <td>{{ o.customer.email }}</td>
+      <td>{{ o.total }} EGP</td>
+      <td>{{ o.created_at|date:"H:i" }}</td>
+      <td>
+        <form method="post" action="{% url 'cashier:order-confirm' o.uuid %}" style="display:inline">
+          {% csrf_token %}
+          <button class="btn btn-sm btn-success" type="submit">Confirm</button>
+        </form>
+        <a href="{% url 'cashier:order-detail' o.uuid %}" class="btn btn-sm btn-outline-secondary">View</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="text-muted">No pending customer orders.</p>
+{% endif %}
+{% endblock %}
