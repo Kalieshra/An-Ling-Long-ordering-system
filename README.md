@@ -39,6 +39,56 @@ curl 'http://localhost:18000/api/v1/menu/items/?category=pizzas&type=dish&search
 curl http://localhost:18000/api/v1/menu/items/1/
 ```
 
+## Phase 3 — complete ✅
+
+| Area | Status |
+|---|---|
+| Order/OrderItem/Table models with JSONB price snapshot | ✓ |
+| `orders.services` layer (`create_order`, `confirm_order`, `mark_paid_cash`, `cancel_order`, `transition_status`) | ✓ |
+| Cashier POS at `/cashier/` with grid + cart + dine-in/takeaway/delivery tabs + 14% VAT live totals | ✓ |
+| Pending customer-orders panel + cashier confirm action | ✓ |
+| HTML receipt at `/cashier/orders/<uuid>/receipt/` | ✓ |
+| Kitchen list at `/kitchen/` (refresh-only) with status transition buttons | ✓ |
+| Customer JWT API: `POST/GET /api/v1/orders/`, `GET /api/v1/orders/<uuid>/`, `PATCH /api/v1/orders/<uuid>/cancel/` | ✓ |
+| Snapshot survives menu rename | ✓ |
+| Phase 3 Playwright suite + Phase 1+2 still green | ✓ |
+
+### Order API examples
+
+```
+# Customer login (Phase 1 endpoint)
+TOKEN=$(curl -s -X POST http://localhost:18000/api/v1/auth/login/ \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"customer@x.com","password":"customer-pw"}' | jq -r .access)
+
+# Place a delivery order
+curl -X POST http://localhost:18000/api/v1/orders/ \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"type":"delivery","delivery_address":"10 Cairo St",
+       "items":[{"menu_item":1,"quantity":2,"modifiers":[]}]}'
+
+# List my orders
+curl http://localhost:18000/api/v1/orders/ -H "Authorization: Bearer $TOKEN"
+
+# Cancel while pending
+curl -X PATCH http://localhost:18000/api/v1/orders/<uuid>/cancel/ \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Phase 3 routes
+
+| Path | Method | Auth | Notes |
+|---|---|---|---|
+| `/cashier/` | GET | session (cashier) | POS UI |
+| `/cashier/orders/create/` | POST JSON | session (cashier) | Calls `create_order` + `confirm_order` |
+| `/cashier/orders/<uuid>/` | GET | session (cashier) | Order detail with mark-paid action |
+| `/cashier/orders/<uuid>/mark-paid/` | POST | session (cashier) | `mark_paid_cash` |
+| `/cashier/orders/<uuid>/receipt/` | GET | session (cashier) | Printable HTML receipt |
+| `/cashier/orders/pending/` | GET | session (cashier) | Customer-API orders awaiting confirm |
+| `/cashier/orders/<uuid>/confirm/` | POST | session (cashier) | `confirm_order` for pending → confirmed |
+| `/kitchen/` | GET | session (kitchen) | List of confirmed/preparing/ready (refresh-only — Phase 4 → WS) |
+| `/kitchen/orders/<uuid>/status/` | POST | session (kitchen) | `transition_status` |
+
 ## Local setup
 
 Prereqs: Docker 24+, Docker Compose v2, [uv](https://docs.astral.sh/uv/), Python 3.12+.
@@ -141,7 +191,6 @@ ADMIN is **strictly limited** to `/dashboard/` per the design. Admins do not aut
 
 | Phase | Goal |
 |---|---|
-| 3 | Orders — Cashier POS UI, order types (dine-in / takeaway / delivery), customer API. Kitchen page polled. |
 | 4 | Real-time KDS via Django Channels + Redis (WebSocket). |
 | 5 | Customer API polish — profile, featured menu, throttling, OpenAPI schema. |
 | 6 | Docs, healthz, admin polish, handoff. |
