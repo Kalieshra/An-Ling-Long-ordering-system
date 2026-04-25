@@ -26,11 +26,7 @@ test-results/
 # uv
 .uv/
 
-# Django
-backend/staticfiles/
-backend/mediafiles/
-
-# pytest
+# pytest / coverage
 .pytest_cache/
 htmlcov/
 .coverage

@@ -23,6 +23,7 @@ dev = [
     "pytest-django>=4.9",
     "pytest-asyncio>=0.24",
     "pytest-playwright>=0.5",
+    "pytest-cov>=5.0",
     "ruff>=0.7",
     "ipython>=8.28",
 ]
@@ -30,6 +31,7 @@ dev = [
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "rms.settings.dev"
 python_files = ["test_*.py"]
+testpaths = ["backend/tests"]
 pythonpath = ["backend"]
 asyncio_mode = "auto"
 addopts = "-ra --strict-markers"

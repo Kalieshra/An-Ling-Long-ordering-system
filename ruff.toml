@@ -3,6 +3,8 @@ target-version = "py312"
 
 [lint]
 select = ["E", "F", "W", "I", "B", "UP", "DJ"]
+# E501 (line too long) is enforced by `ruff format`, not the linter — keeps CI green
+# on intentional long strings (URLs, error messages) while format keeps source tidy.
 ignore = ["E501"]
 
 [lint.per-file-ignores]
