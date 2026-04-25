@@ -10,6 +10,7 @@ urlpatterns = [
     path("api/v1/orders/", include("orders.urls_api")),
     path("dashboard/menu/", include("menu.urls_dashboard")),
     path("cashier/", include("orders.urls_cashier")),
+    path("kitchen/", include("orders.urls_kitchen")),
     path("", include("accounts.urls_web")),
 ]
 

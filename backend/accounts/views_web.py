@@ -56,11 +56,3 @@ def dashboard_home(request):
     return render(request, "dashboard/home.html", {"user_role": request.user.role})
 
 
-@login_required
-def cashier_home(request):
-    return render(request, "cashier/home.html", {"user_role": request.user.role})
-
-
-@login_required
-def kitchen_home(request):
-    return render(request, "kitchen/home.html", {"user_role": request.user.role})
