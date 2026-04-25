@@ -13,8 +13,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    ports:
-      - "5432:5432"
+    # Host port mapping is in docker-compose.override.yml (auto-loaded);
+    # delete or edit the override if your host already runs Postgres on 5432.
 
   redis:
     image: redis:7-alpine
@@ -26,8 +26,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    ports:
-      - "6379:6379"
+    # Host port mapping is in docker-compose.override.yml (auto-loaded).
 
   web:
     build:
@@ -70,6 +69,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      web:
+        # Wait for `web` to start so its `manage.py migrate` runs first; otherwise
+        # daphne can answer requests against an empty schema on first boot.
+        condition: service_started
     volumes:
       - ./backend:/app/backend
     command: daphne -b 0.0.0.0 -p 9000 rms.asgi:application

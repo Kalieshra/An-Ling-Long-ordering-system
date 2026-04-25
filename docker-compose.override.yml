@@ -1,0 +1,12 @@
+# Auto-loaded by `docker compose up`. Maps db/redis to host ports for local tooling
+# (psql, redis-cli, host-side pytest using DATABASE_URL=localhost:5432). If your host
+# already runs Postgres or Redis on these ports, comment the offending mapping(s) or
+# bypass this file entirely:
+#   docker compose -f docker-compose.yml up
+services:
+  db:
+    ports:
+      - "5432:5432"
+  redis:
+    ports:
+      - "6379:6379"
