@@ -17,7 +17,7 @@
       <td>{{ line.quantity }}</td>
       <td>{{ line.unit_price }}</td>
       <td>{% for m in line.modifiers.all %}{{ m.option.name }} (+{{ m.price_delta }}){% if not forloop.last %}, {% endif %}{% endfor %}</td>
-      <td class="text-end">{{ line.unit_price|floatformat:2 }} ×{{ line.quantity }}</td>
+      <td class="text-end">{{ line.line_total|floatformat:2 }} EGP</td>
     </tr>
     {% endfor %}
   </tbody>

@@ -140,6 +140,11 @@ class OrderItem(models.Model):
     def __str__(self) -> str:
         return f"{self.quantity}× {self.menu_item.name}"
 
+    @property
+    def line_total(self):
+        mods_sum = sum((m.price_delta for m in self.modifiers.all()), Decimal("0"))
+        return (self.unit_price + mods_sum) * self.quantity
+
 
 class OrderItemModifier(models.Model):
     order_item = models.ForeignKey(
