@@ -9,6 +9,7 @@ urlpatterns = [
     path("api/v1/menu/", include("menu.urls_api")),
     path("api/v1/orders/", include("orders.urls_api")),
     path("dashboard/menu/", include("menu.urls_dashboard")),
+    path("cashier/", include("orders.urls_cashier")),
     path("", include("accounts.urls_web")),
 ]
 
