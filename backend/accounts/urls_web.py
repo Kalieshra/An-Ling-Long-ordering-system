@@ -1,4 +1,2 @@
-"""Placeholder. Task 5+ will implement web auth views."""
-from django.urls import path
-
+"""Placeholder. Task 9 implements staff session login + dashboard placeholder views."""
 urlpatterns: list = []

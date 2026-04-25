@@ -31,5 +31,5 @@ class User(AbstractUser):
     def __str__(self) -> str:
         return self.email
 
-    def is_role(self, role: str) -> bool:
+    def is_role(self, role: "Role | str") -> bool:
         return self.role == role

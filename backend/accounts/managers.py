@@ -22,6 +22,7 @@ class UserManager(BaseUserManager):
         return self._create_user(email, password, **extra_fields)
 
     def create_superuser(self, email, password=None, **extra_fields):
+        # Deferred import to break the models -> managers -> models circular dependency.
         from .models import Role
 
         extra_fields.setdefault("is_staff", True)

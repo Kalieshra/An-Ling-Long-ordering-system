@@ -1,5 +1,6 @@
 """Unit tests for the custom User model and Role enum."""
 import pytest
+from django.db import IntegrityError
 
 from accounts.models import Role, User
 
@@ -47,7 +48,7 @@ class TestUserModel:
 
     def test_email_must_be_unique(self):
         User.objects.create_user(email="dup@example.com", password="s3cret-pw")
-        with pytest.raises(Exception):  # IntegrityError at DB layer
+        with pytest.raises(IntegrityError):
             User.objects.create_user(email="dup@example.com", password="s3cret-pw")
 
     def test_str_returns_email(self):
