@@ -7,6 +7,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/auth/", include("accounts.urls_api")),
     path("api/v1/menu/", include("menu.urls_api")),
+    path("dashboard/menu/", include("menu.urls_dashboard")),
     path("", include("accounts.urls_web")),
 ]
 
