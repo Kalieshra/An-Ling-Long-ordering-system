@@ -52,6 +52,15 @@ class TestRegister:
         )
         assert resp.status_code == 400
 
+    def test_rejects_duplicate_email_case_insensitive(self, client):
+        User.objects.create_user(email="dup@example.com", password="s3cret-pw-long")
+        resp = client.post(
+            self.url,
+            {"email": "DUP@Example.COM", "password": "s3cret-pw-long", "name": "Dup2"},
+            format="json",
+        )
+        assert resp.status_code == 400
+
     def test_registration_always_creates_customer_role(self, client):
         """Even if payload tries to set role=admin, user must be created as customer."""
         resp = client.post(
@@ -99,3 +108,13 @@ class TestLogin:
             self.url, {"email": "nobody@example.com", "password": "s3cret-pw-long"}, format="json"
         )
         assert resp.status_code == 401
+
+    def test_login_is_case_insensitive_on_email(self, client):
+        User.objects.create_user(email="alice@example.com", password="s3cret-pw-long")
+        resp = client.post(
+            self.url,
+            {"email": "Alice@EXAMPLE.COM", "password": "s3cret-pw-long"},
+            format="json",
+        )
+        assert resp.status_code == 200
+        assert "access" in resp.data

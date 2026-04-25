@@ -7,10 +7,12 @@ from .models import Role, User
 
 
 class UserSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source="first_name", read_only=True)
+
     class Meta:
         model = User
-        fields = ("id", "email", "role", "first_name", "phone")
-        read_only_fields = ("id", "role")
+        fields = ("id", "email", "role", "name", "phone")
+        read_only_fields = ("id", "role", "name")
 
 
 class RegisterSerializer(serializers.Serializer):
@@ -46,3 +48,9 @@ class RegisterSerializer(serializers.Serializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
+
+    def validate_email(self, value):
+        # Mirror the storage normalization (UserManager._create_user lowercases the
+        # full address). DRF's EmailField does not lowercase, so without this hook
+        # logging in with any capital letters would fail to match the stored row.
+        return User.objects.normalize_email(value).lower()
