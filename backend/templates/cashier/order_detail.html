@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Order {{ order.number }} — Cashier{% endblock %}
+{% block content %}
+<h1>Order {{ order.number }}</h1>
+<p class="text-muted">{{ order.get_order_type_display }} — {{ order.get_status_display }} — payment: {{ order.get_payment_status_display }}</p>
+
+{% if order.table %}<p>Table: #{{ order.table.number }}</p>{% endif %}
+{% if order.customer_phone %}<p>Phone: {{ order.customer_phone }}</p>{% endif %}
+{% if order.delivery_address %}<p>Address: {{ order.delivery_address }}</p>{% endif %}
+
+<table class="table">
+  <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Modifiers</th><th class="text-end">Line</th></tr></thead>
+  <tbody>
+    {% for line in order.items.all %}
+    <tr>
+      <td>{{ line.menu_item.name }}</td>
+      <td>{{ line.quantity }}</td>
+      <td>{{ line.unit_price }}</td>
+      <td>{% for m in line.modifiers.all %}{{ m.option.name }} (+{{ m.price_delta }}){% if not forloop.last %}, {% endif %}{% endfor %}</td>
+      <td class="text-end">{{ line.unit_price|floatformat:2 }} ×{{ line.quantity }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="row justify-content-end">
+  <div class="col-md-4">
+    <table class="table table-sm">
+      <tr><td>Subtotal</td><td class="text-end">{{ order.subtotal }} EGP</td></tr>
+      <tr><td>Tax (14%)</td><td class="text-end">{{ order.tax }} EGP</td></tr>
+      <tr><th>Total</th><th class="text-end">{{ order.total }} EGP</th></tr>
+    </table>
+  </div>
+</div>
+
+<div class="d-flex gap-2">
+  {% if order.payment_status != "paid" %}
+  <form method="post" action="{% url 'cashier:order-mark-paid' order.uuid %}">
+    {% csrf_token %}
+    <button class="btn btn-success" type="submit">Mark paid</button>
+  </form>
+  {% endif %}
+  <a class="btn btn-outline-secondary" href="{% url 'cashier:order-receipt' order.uuid %}">View receipt</a>
+  <a class="btn btn-link" href="{% url 'cashier:home' %}">← back to POS</a>
+</div>
+{% endblock %}

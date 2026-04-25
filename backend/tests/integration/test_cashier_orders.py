@@ -103,3 +103,44 @@ class TestCashierOrderCreate:
         assert resp.status_code == 200
         data = resp.json()
         assert data["uuid"]
+
+
+class TestCashierOrderDetailAndPay:
+    def test_detail_renders(self, cashier_client, margherita, table):
+        resp = cashier_client.post(
+            "/cashier/orders/create/",
+            data=json.dumps({"type": "dine_in", "table": table.id,
+                             "items": [{"menu_item": margherita.id, "quantity": 1, "modifiers": []}]}),
+            content_type="application/json",
+        )
+        uuid = resp.json()["uuid"]
+        page = cashier_client.get(f"/cashier/orders/{uuid}/")
+        assert page.status_code == 200
+        assert b"Margherita" in page.content
+        assert b"Mark paid" in page.content
+
+    def test_mark_paid_updates_status(self, cashier_client, margherita, table):
+        resp = cashier_client.post(
+            "/cashier/orders/create/",
+            data=json.dumps({"type": "dine_in", "table": table.id,
+                             "items": [{"menu_item": margherita.id, "quantity": 1, "modifiers": []}]}),
+            content_type="application/json",
+        )
+        uuid = resp.json()["uuid"]
+        pay = cashier_client.post(f"/cashier/orders/{uuid}/mark-paid/")
+        assert pay.status_code == 302
+        order = Order.objects.get(uuid=uuid)
+        assert order.payment_status == Order.PaymentStatus.PAID
+
+    def test_receipt_renders(self, cashier_client, margherita, table):
+        resp = cashier_client.post(
+            "/cashier/orders/create/",
+            data=json.dumps({"type": "dine_in", "table": table.id,
+                             "items": [{"menu_item": margherita.id, "quantity": 1, "modifiers": []}]}),
+            content_type="application/json",
+        )
+        uuid = resp.json()["uuid"]
+        rcp = cashier_client.get(f"/cashier/orders/{uuid}/receipt/")
+        assert rcp.status_code == 200
+        assert b"Margherita" in rcp.content
+        assert b"Total" in rcp.content

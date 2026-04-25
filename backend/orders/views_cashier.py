@@ -3,13 +3,13 @@ import json
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import TemplateView, View
 from menu.models import Category, MenuItem
 
-from .exceptions import OrderValidationError
+from .exceptions import InvalidTransition, OrderValidationError
 from .models import Order, Table
-from .services import confirm_order, create_order
+from .services import confirm_order, create_order, mark_paid_cash
 
 
 class _CashierMixin(LoginRequiredMixin):
@@ -98,4 +98,35 @@ class OrderCreateView(_CashierMixin, View):
             "uuid": str(order.uuid),
             "number": order.number,
             "redirect": f"/cashier/orders/{order.uuid}/",
+        })
+
+
+class OrderDetailView(_CashierMixin, View):
+    def get(self, request, uuid):
+        order = get_object_or_404(
+            Order.objects.prefetch_related("items__modifiers__option", "items__menu_item"),
+            uuid=uuid,
+        )
+        return render(request, "cashier/order_detail.html", {"order": order})
+
+
+class MarkPaidView(_CashierMixin, View):
+    http_method_names = ["post"]
+
+    def post(self, request, uuid):
+        order = get_object_or_404(Order, uuid=uuid)
+        try:
+            mark_paid_cash(order, cashier=request.user)
+        except InvalidTransition:
+            pass  # already paid — idempotent UX
+        return redirect("cashier:order-detail", uuid=order.uuid)
+
+
+class ReceiptView(_CashierMixin, View):
+    def get(self, request, uuid):
+        order = get_object_or_404(Order, uuid=uuid)
+        snapshot_items = order.snapshot.get("items", [])
+        return render(request, "cashier/receipt.html", {
+            "order": order,
+            "snapshot_items": snapshot_items,
         })

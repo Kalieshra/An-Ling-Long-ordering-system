@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Receipt {{ order.number }}{% endblock %}
+{% block content %}
+<style media="print">.no-print { display:none } body { background:#fff }</style>
+<div class="no-print mb-3"><a href="{% url 'cashier:order-detail' order.uuid %}">← back</a> &nbsp; <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">Print</button></div>
+
+<div style="max-width:380px;font-family:monospace">
+  <h4 class="text-center">An Ling Long</h4>
+  <p class="text-center mb-1">Order #{{ order.number }} — {{ order.get_order_type_display }}</p>
+  <p class="text-center mb-1 text-muted">{{ order.created_at|date:"Y-m-d H:i" }}</p>
+  <hr>
+  {% for line in snapshot_items %}
+  <div>
+    {{ line.quantity }}× {{ line.name }} — {{ line.line_subtotal }} EGP
+    {% if line.modifiers %}
+    <div class="text-muted" style="margin-left:1rem;font-size:.85em">
+      {% for m in line.modifiers %}+ {{ m.name }} ({{ m.price_delta }}){% if not forloop.last %}<br>{% endif %}{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+  <hr>
+  <div>Subtotal: {{ order.subtotal }} EGP</div>
+  <div>Tax (14%): {{ order.tax }} EGP</div>
+  <div><strong>Total: {{ order.total }} EGP</strong></div>
+  <p class="mt-3 text-center">Payment: {{ order.get_payment_status_display }}</p>
+  <p class="text-center text-muted">Thank you!</p>
+</div>
+{% endblock %}
