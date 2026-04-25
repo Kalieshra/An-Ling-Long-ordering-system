@@ -6,7 +6,9 @@
 services:
   db:
     ports:
-      - "5432:5432"
+      # Host:15432 → container:5432 — non-default to avoid clashing with a host Postgres
+      - "15432:5432"
   redis:
     ports:
-      - "6379:6379"
+      # Host:16379 → container:6379 — non-default to avoid clashing with a host Redis
+      - "16379:6379"
