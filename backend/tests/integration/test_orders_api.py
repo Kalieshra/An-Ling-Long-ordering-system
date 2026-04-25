@@ -185,3 +185,30 @@ class TestCancel:
         )
         resp = auth_client.patch(f"/api/v1/orders/{other.uuid}/cancel/")
         assert resp.status_code == 404
+
+
+class TestSnapshotAndUnavailable:
+    def test_snapshot_survives_menu_rename(self, auth_client, margherita):
+        resp = auth_client.post(
+            "/api/v1/orders/",
+            {"type": "takeaway", "items": [{"menu_item": margherita.id, "quantity": 1}]},
+            format="json",
+        )
+        uuid = resp.data["uuid"]
+        margherita.name = "Renamed Pizza"
+        margherita.price = Decimal("999.00")
+        margherita.save()
+        detail = auth_client.get(f"/api/v1/orders/{uuid}/")
+        snap_items = detail.data["snapshot"]["items"]
+        assert snap_items[0]["name"] == "Margherita"
+        assert snap_items[0]["unit_price"] == "100.00"
+
+    def test_unavailable_item_400_via_api(self, auth_client, margherita):
+        margherita.is_available = False
+        margherita.save()
+        resp = auth_client.post(
+            "/api/v1/orders/",
+            {"type": "takeaway", "items": [{"menu_item": margherita.id, "quantity": 1}]},
+            format="json",
+        )
+        assert resp.status_code == 400
