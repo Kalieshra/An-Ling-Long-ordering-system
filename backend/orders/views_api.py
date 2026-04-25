@@ -23,9 +23,10 @@ class OrderViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch"]
 
     def get_queryset(self):
-        return Order.objects.for_customer(self.request.user).prefetch_related(
-            "items__modifiers__option", "items__menu_item"
-        )
+        qs = Order.objects.for_customer(self.request.user)
+        if self.action in ("retrieve", "cancel"):
+            qs = qs.prefetch_related("items__modifiers__option", "items__menu_item")
+        return qs
 
     def get_serializer_class(self):
         if self.action == "create":
