@@ -111,6 +111,18 @@ class TestIngredient:
         )
         assert ing.is_low is False
 
+    def test_is_low_when_stock_equals_threshold(self):
+        ing = Ingredient.objects.create(
+            name="Salt", unit=Ingredient.Unit.GRAM,
+            stock_qty=Decimal("1.0"), low_threshold=Decimal("1.0"),
+        )
+        assert ing.is_low is True
+
+    def test_is_not_low_when_threshold_is_zero(self):
+        # Default threshold=0 means "not configured"; opt-in semantic.
+        ing = Ingredient.objects.create(name="Unconfigured", unit=Ingredient.Unit.GRAM)
+        assert ing.is_low is False
+
     def test_name_unique(self):
         Ingredient.objects.create(name="Salt", unit=Ingredient.Unit.GRAM)
         with pytest.raises(IntegrityError):
@@ -124,3 +136,34 @@ class TestRecipe:
         Recipe.objects.create(menu_item=margherita, ingredient=ing, quantity=Decimal("0.2"))
         with pytest.raises(IntegrityError):
             Recipe.objects.create(menu_item=margherita, ingredient=ing, quantity=Decimal("0.3"))
+
+    def test_quantity_must_be_positive(self, margherita):
+        ing = Ingredient.objects.create(name="Olives", unit=Ingredient.Unit.GRAM)
+        recipe = Recipe(menu_item=margherita, ingredient=ing, quantity=Decimal("0"))
+        with pytest.raises(ValidationError):
+            recipe.full_clean()
+
+
+@pytest.mark.django_db
+class TestProtectFKBehavior:
+    def test_category_delete_blocked_when_items_exist(self, margherita, category):
+        from django.db.models import ProtectedError
+        with pytest.raises(ProtectedError):
+            category.delete()
+
+    def test_ingredient_delete_blocked_when_in_recipe(self, margherita):
+        from django.db.models import ProtectedError
+        ing = Ingredient.objects.create(name="Mozzarella", unit=Ingredient.Unit.KG)
+        Recipe.objects.create(menu_item=margherita, ingredient=ing, quantity=Decimal("0.3"))
+        with pytest.raises(ProtectedError):
+            ing.delete()
+
+
+@pytest.mark.django_db
+class TestModifierGroupConstraint:
+    def test_max_select_must_be_gte_min_select(self, margherita):
+        from django.db import IntegrityError as IE
+        with pytest.raises(IE):
+            ModifierGroup.objects.create(
+                menu_item=margherita, name="Bad", min_select=5, max_select=1
+            )

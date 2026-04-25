@@ -83,6 +83,12 @@ class ModifierGroup(models.Model):
 
     class Meta:
         ordering = ["display_order"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(max_select__gte=models.F("min_select")),
+                name="modifiergroup_max_gte_min",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.menu_item.name} — {self.name}"
@@ -132,7 +138,10 @@ class Ingredient(models.Model):
 
     @property
     def is_low(self) -> bool:
-        return self.stock_qty <= self.low_threshold
+        # Opt-in: only flag when an operator has set a positive threshold,
+        # otherwise an unconfigured ingredient (default threshold=0) would
+        # always show as low.
+        return self.low_threshold > 0 and self.stock_qty <= self.low_threshold
 
 
 class Recipe(models.Model):
@@ -142,10 +151,15 @@ class Recipe(models.Model):
     ingredient = models.ForeignKey(
         Ingredient, on_delete=models.PROTECT, related_name="used_in"
     )
-    quantity = models.DecimalField(max_digits=10, decimal_places=3)
+    quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        validators=[MinValueValidator(Decimal("0.001"))],
+    )
 
     class Meta:
         unique_together = [("menu_item", "ingredient")]
+        ordering = ["ingredient__name"]
 
     def __str__(self) -> str:
         return f"{self.menu_item.name} ↔ {self.ingredient.name}"
