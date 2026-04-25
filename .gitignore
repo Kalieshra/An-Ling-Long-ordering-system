@@ -22,3 +22,15 @@ test-results/
 
 # OS
 .DS_Store
+
+# uv
+.uv/
+
+# Django
+backend/staticfiles/
+backend/mediafiles/
+
+# pytest
+.pytest_cache/
+htmlcov/
+.coverage

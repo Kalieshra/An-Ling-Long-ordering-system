@@ -1,0 +1,38 @@
+[project]
+name = "rms"
+version = "0.1.0"
+description = "Restaurant Management System (Egypt MVP)"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.1,<5.2",
+    "djangorestframework>=3.15",
+    "djangorestframework-simplejwt[crypto]>=5.3",
+    "django-cors-headers>=4.5",
+    "channels>=4.1",
+    "channels-redis>=4.2",
+    "daphne>=4.1",
+    "gunicorn>=23.0",
+    "psycopg[binary]>=3.2",
+    "django-environ>=0.11",
+    "pillow>=10.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-django>=4.9",
+    "pytest-asyncio>=0.24",
+    "pytest-playwright>=0.5",
+    "ruff>=0.7",
+    "ipython>=8.28",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "rms.settings.dev"
+python_files = ["test_*.py"]
+pythonpath = ["backend"]
+asyncio_mode = "auto"
+addopts = "-ra --strict-markers"
+markers = [
+    "e2e: end-to-end tests that require docker compose up",
+]
