@@ -51,8 +51,7 @@ services:
       sh -c "python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput --clear &&
              gunicorn rms.wsgi:application --bind 0.0.0.0:8000 --workers 3 --reload --access-logfile -"
-    ports:
-      - "8000:8000"
+    # Host port mapping is in docker-compose.override.yml.
 
   asgi:
     build:
@@ -76,8 +75,7 @@ services:
     volumes:
       - ./backend:/app/backend
     command: daphne -b 0.0.0.0 -p 9000 rms.asgi:application
-    ports:
-      - "9000:9000"
+    # Host port mapping is in docker-compose.override.yml.
 
 volumes:
   pgdata:

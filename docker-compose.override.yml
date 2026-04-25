@@ -12,3 +12,11 @@ services:
     ports:
       # Host:16379 → container:6379 — non-default to avoid clashing with a host Redis
       - "16379:6379"
+  web:
+    ports:
+      # Host:18000 → container:8000 — non-default to avoid clashing with a host service
+      - "18000:8000"
+  asgi:
+    ports:
+      # Host:19000 → container:9000
+      - "19000:9000"

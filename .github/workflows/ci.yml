@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-unit:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: rms
+          POSTGRES_PASSWORD: rms
+          POSTGRES_DB: rms
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-retries 5
+    env:
+      DJANGO_SETTINGS_MODULE: rms.settings.dev
+      DJANGO_SECRET_KEY: ci-secret-key-32-bytes-or-longer-please
+      DJANGO_DEBUG: "0"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      DATABASE_URL: postgres://rms:rms@localhost:5432/rms
+      REDIS_URL: redis://localhost:6379/0
+      CHANNEL_LAYERS_URL: redis://localhost:6379/1
+      SIMPLE_JWT_SIGNING_KEY: ci-jwt-signing-key-32-bytes-or-longer
+      CORS_ALLOWED_ORIGINS: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+      - run: uv sync
+      - name: Ruff
+        run: uv run ruff check .
+      - name: Pytest (unit + integration)
+        run: uv run pytest backend/tests/unit backend/tests/integration -v
+
+  build-and-e2e:
+    runs-on: ubuntu-24.04
+    needs: lint-and-unit
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: docker compose build
+      - run: docker compose up -d
+      - name: Wait for /login/
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/login/ >/dev/null; then
+              echo "ready after ${i} attempts"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "web service did not become ready"
+          docker compose logs web
+          exit 1
+      - uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+      - run: uv sync
+      - run: uv run playwright install --with-deps chromium
+      - name: E2E
+        env:
+          RMS_BASE_URL: http://localhost:8000
+        run: uv run pytest backend/tests/e2e -v -m e2e
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down -v
