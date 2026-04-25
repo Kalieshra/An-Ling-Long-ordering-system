@@ -77,7 +77,7 @@ class TestCashierPOSDineIn:
         page.select_option("select[name='table']", label="#99 (4 seats)")
         page.click("#pos-confirm")
         # Detail page URL is /cashier/orders/<uuid>/
-        page.wait_for_url(lambda url: "/cashier/orders/" in url and url.rstrip("/").endswith("/") is False or True, timeout=8000)
+        page.wait_for_url("**/cashier/orders/**", timeout=8000)
         expect(page.locator("body")).to_contain_text("Mark paid")
 
         # Open a fresh kitchen browser context
