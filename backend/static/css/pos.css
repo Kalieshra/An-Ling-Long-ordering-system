@@ -1,0 +1,33 @@
+.pos-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; height: calc(100vh - 130px); }
+.pos-menu { overflow-y: auto; padding-right: .5rem; }
+.pos-cart { background: #fafafa; border: 1px solid #ddd; border-radius: 6px; padding: 1rem; display: flex; flex-direction: column; }
+
+.pos-categories { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.pos-cat-btn { padding: .4rem .9rem; border-radius: 999px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+.pos-cat-btn.is-active { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+
+.pos-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .75rem; }
+.pos-item { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: .6rem; cursor: pointer; text-align: center; transition: transform 80ms; }
+.pos-item:hover { transform: translateY(-2px); border-color: #0d6efd; }
+.pos-item img { width: 100%; height: 80px; object-fit: cover; border-radius: 4px; }
+.pos-item .name { font-weight: 600; margin-top: .4rem; font-size: .9rem; }
+.pos-item .price { color: #666; font-size: .85rem; }
+
+.pos-types { display: flex; gap: .25rem; margin-bottom: .75rem; }
+.pos-type-btn { flex: 1; padding: .4rem; background: #fff; border: 1px solid #ccc; cursor: pointer; }
+.pos-type-btn.is-active { background: #198754; color: #fff; border-color: #198754; }
+
+.pos-cart-lines { flex: 1; overflow-y: auto; margin-bottom: .5rem; }
+.pos-line { padding: .4rem 0; border-bottom: 1px dashed #ddd; }
+.pos-line .row1 { display: flex; justify-content: space-between; }
+.pos-line .qty { display: flex; gap: .25rem; align-items: center; margin-top: .2rem; }
+.pos-line .qty button { width: 26px; height: 26px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+.pos-line .modifiers { font-size: .8rem; color: #666; }
+
+.pos-totals { font-size: .95rem; }
+.pos-totals .row { display: flex; justify-content: space-between; }
+.pos-totals .total { font-weight: 700; font-size: 1.1rem; border-top: 1px solid #333; padding-top: .25rem; margin-top: .25rem; }
+
+.pos-modifier-modal { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.pos-modifier-modal.hidden { display: none; }
+.pos-modifier-modal .panel { background: #fff; border-radius: 8px; padding: 1rem; width: 360px; max-height: 80vh; overflow-y: auto; }

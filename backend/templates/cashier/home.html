@@ -1,7 +1,44 @@
 {% extends "base.html" %}
-{% block title %}Cashier — RMS{% endblock %}
+{% load static %}
+{% block title %}Cashier POS — RMS{% endblock %}
 {% block content %}
-<h1>Cashier POS</h1>
-<p class="text-muted">Role: {{ user_role }}</p>
-<p>Phase 3 will render the point-of-sale interface here.</p>
+<link rel="stylesheet" href="{% static 'css/pos.css' %}">
+<div id="pos-root" class="pos-grid">
+  <div class="pos-menu">
+    <div class="pos-categories"></div>
+    <div class="pos-items"></div>
+  </div>
+  <aside class="pos-cart">
+    <div class="pos-types">
+      <button class="pos-type-btn" data-type="dine_in" type="button">Dine-in</button>
+      <button class="pos-type-btn" data-type="takeaway" type="button">Takeaway</button>
+      <button class="pos-type-btn" data-type="delivery" type="button">Delivery</button>
+    </div>
+    <div class="pos-table-wrap" style="margin-bottom:.5rem">
+      <label>Table
+        <select name="table" class="form-select form-select-sm">
+          {% for t in tables %}<option value="{{ t.id }}">#{{ t.number }} ({{ t.capacity }} seats)</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="pos-phone-wrap" style="margin-bottom:.5rem">
+      <label>Phone <input name="phone" class="form-control form-control-sm" placeholder="010..."></label>
+    </div>
+    <div class="pos-address-wrap" style="margin-bottom:.5rem">
+      <label>Address <textarea name="address" rows="2" class="form-control form-control-sm"></textarea></label>
+    </div>
+    <div class="pos-cart-lines"></div>
+    <div class="pos-totals">
+      <div class="row"><span>Subtotal</span><span><span class="sub-val">0.00</span> EGP</span></div>
+      <div class="row"><span>Tax (14%)</span><span><span class="tax-val">0.00</span> EGP</span></div>
+      <div class="row total"><span>Total</span><span><span class="total-val">0.00</span> EGP</span></div>
+    </div>
+    <button id="pos-confirm" class="btn btn-primary mt-2" type="button">Confirm order</button>
+    <a href="{% url 'cashier:pending-list' %}" class="btn btn-link mt-2">Pending customer orders</a>
+  </aside>
+</div>
+<div class="pos-modifier-modal hidden"><div class="panel"></div></div>
+{{ pos_data|json_script:"pos-data" }}
+<script>window.RMS_TAX_RATE = "{{ tax_rate }}";</script>
+<script src="{% static 'js/pos.js' %}"></script>
 {% endblock %}
