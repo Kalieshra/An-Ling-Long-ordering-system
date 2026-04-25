@@ -35,8 +35,11 @@ class KitchenStatusView(_KitchenMixin, View):
     def post(self, request, uuid):
         order = get_object_or_404(Order, uuid=uuid)
         target = request.POST.get("status")
-        if target not in [s.value for s in Order.Status]:
-            return HttpResponseBadRequest("Unknown status.")
+        expected = self._NEXT_STATUS.get(order.status)
+        if expected is None or target != expected.value:
+            return HttpResponseBadRequest(
+                f"Cannot transition order {order.number} from {order.status} to {target!r}."
+            )
         try:
             transition_status(order, target, by_user=request.user)
         except InvalidTransition as e:

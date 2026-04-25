@@ -1,6 +1,7 @@
 """Cashier-side server-rendered views and JSON endpoints."""
 import json
 
+from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -55,7 +56,7 @@ class POSView(_CashierMixin, TemplateView):
         ]
         ctx["pos_data"] = {"categories": cats, "items": items_data}
         ctx["tables"] = list(Table.objects.filter(is_active=True))
-        ctx["tax_rate"] = "0.14"
+        ctx["tax_rate"] = str(settings.RMS_TAX_RATE)
         return ctx
 
 

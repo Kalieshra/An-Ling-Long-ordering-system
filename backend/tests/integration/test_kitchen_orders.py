@@ -102,3 +102,12 @@ class TestKitchenStatusTransitions:
             f"/kitchen/orders/{o.uuid}/status/", data={"status": "ready"},
         )
         assert resp.status_code == 400
+
+    def test_cannot_cancel_via_status_endpoint(self, kitchen_client, margherita):
+        o = _make_order(margherita, Order.Status.CONFIRMED, "K-z")
+        resp = kitchen_client.post(
+            f"/kitchen/orders/{o.uuid}/status/", data={"status": "cancelled"},
+        )
+        assert resp.status_code == 400
+        o.refresh_from_db()
+        assert o.status == Order.Status.CONFIRMED
