@@ -1,4 +1,5 @@
 """Base Django settings. Shared between environments."""
+from datetime import timedelta
 from pathlib import Path
 
 import environ
@@ -12,7 +13,7 @@ env = environ.Env(
 )
 environ.Env.read_env(BASE_DIR.parent / ".env")
 
-SECRET_KEY = env("DJANGO_SECRET_KEY", default="insecure-dev-key")
+SECRET_KEY = env("DJANGO_SECRET_KEY")  # no default — fail fast if unset
 DEBUG = env("DJANGO_DEBUG")
 ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
 
@@ -35,8 +36,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -79,6 +80,7 @@ CHANNEL_LAYERS = {
 
 AUTH_USER_MODEL = "accounts.User"
 AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
      "OPTIONS": {"min_length": 8}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
@@ -92,7 +94,8 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+_static_dir = BASE_DIR / "static"
+STATICFILES_DIRS = [_static_dir] if _static_dir.is_dir() else []
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "mediafiles"
 
@@ -108,7 +111,6 @@ REST_FRAMEWORK = {
 }
 
 # simplejwt with rotation + blacklist per spec §4.4
-from datetime import timedelta  # noqa: E402
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
