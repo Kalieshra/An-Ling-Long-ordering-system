@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Server error — RMS{% endblock %}
+{% block content %}
+<div class="alert alert-danger">
+  <h2>500 — Something broke on our end</h2>
+  <p>The error has been logged and someone will look at it.</p>
+  {% if request.META.HTTP_X_REQUEST_ID %}
+  <p class="text-muted small">
+    Reference: <code>{{ request.META.HTTP_X_REQUEST_ID }}</code>
+  </p>
+  {% endif %}
+  <a href="/" class="btn btn-secondary">Back to home</a>
+</div>
+{% endblock %}

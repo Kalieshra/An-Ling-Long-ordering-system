@@ -3,6 +3,19 @@
 {% block content %}
 <div class="alert alert-info">
   <h2>404 — Not found</h2>
-  <p>The page you requested doesn't exist.</p>
+  <p>The page you requested doesn't exist or has been moved.</p>
+  {% if request and request.user.is_authenticated %}
+    {% if request.user.role == "admin" %}
+    <a href="/dashboard/" class="btn btn-primary">Back to admin dashboard</a>
+    {% elif request.user.role == "cashier" %}
+    <a href="/cashier/" class="btn btn-primary">Back to POS</a>
+    {% elif request.user.role == "kitchen" %}
+    <a href="/kitchen/" class="btn btn-primary">Back to kitchen</a>
+    {% else %}
+    <a href="/" class="btn btn-primary">Back to home</a>
+    {% endif %}
+  {% else %}
+    <a href="/login/" class="btn btn-primary">Sign in</a>
+  {% endif %}
 </div>
 {% endblock %}
