@@ -1,4 +1,10 @@
-"""WebSocket URL patterns. Filled in by Task 4 after consumers exist."""
-from django.urls import path  # noqa: F401  -- kept for Task 2 to extend
+"""WebSocket URL patterns."""
+from channels.auth import AuthMiddlewareStack
+from django.urls import path
 
-websocket_urlpatterns: list = []  # populated in Task 2
+from .consumers import KDSConsumer
+
+websocket_urlpatterns = [
+    # /ws/kds/ — kitchen staff KDS, session-auth via AuthMiddlewareStack
+    path("ws/kds/", AuthMiddlewareStack(KDSConsumer.as_asgi())),
+]
