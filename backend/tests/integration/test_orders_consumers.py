@@ -37,15 +37,23 @@ class TestKDSConsumerAuth:
     async def test_anonymous_connection_rejected(self):
         from django.contrib.auth.models import AnonymousUser
         comm = WebsocketCommunicator(_app_with_user(AnonymousUser()), "/ws/kds/")
-        connected, close_code = await comm.connect()
-        assert connected is False
-        assert close_code == 4401
+        connected, _ = await comm.connect()
+        # Accept before close means we got accept, now check for the close
+        assert connected is True
+        # Receive the close frame
+        disconnect_code = await comm.receive_output(timeout=1)
+        assert disconnect_code["type"] == "websocket.close"
+        assert disconnect_code.get("code") == 4401
 
     async def test_cashier_connection_rejected(self, cashier_user):
         comm = WebsocketCommunicator(_app_with_user(cashier_user), "/ws/kds/")
-        connected, close_code = await comm.connect()
-        assert connected is False
-        assert close_code == 4401
+        connected, _ = await comm.connect()
+        # Accept before close means we got accept, now check for the close
+        assert connected is True
+        # Receive the close frame
+        disconnect_code = await comm.receive_output(timeout=1)
+        assert disconnect_code["type"] == "websocket.close"
+        assert disconnect_code.get("code") == 4401
 
     async def test_kitchen_connection_accepted(self, kitchen_user):
         comm = WebsocketCommunicator(_app_with_user(kitchen_user), "/ws/kds/")
@@ -122,9 +130,13 @@ class TestOrderTrackConsumerAuth:
             _app_with_user(AnonymousUser()),
             f"/ws/order/{order.uuid}/",
         )
-        connected, close_code = await comm.connect()
-        assert connected is False
-        assert close_code == 4401
+        connected, _ = await comm.connect()
+        # Accept before close means we got accept, now check for the close
+        assert connected is True
+        # Receive the close frame
+        disconnect_code = await comm.receive_output(timeout=1)
+        assert disconnect_code["type"] == "websocket.close"
+        assert disconnect_code.get("code") == 4401
 
     async def test_other_customer_rejected(self, order, django_user_model):
         from asgiref.sync import sync_to_async
@@ -135,9 +147,13 @@ class TestOrderTrackConsumerAuth:
             _app_with_user(other),
             f"/ws/order/{order.uuid}/",
         )
-        connected, close_code = await comm.connect()
-        assert connected is False
-        assert close_code == 4403
+        connected, _ = await comm.connect()
+        # Accept before close means we got accept, now check for the close
+        assert connected is True
+        # Receive the close frame
+        disconnect_code = await comm.receive_output(timeout=1)
+        assert disconnect_code["type"] == "websocket.close"
+        assert disconnect_code.get("code") == 4403
 
     async def test_owner_accepted(self, order, customer_user):
         comm = WebsocketCommunicator(

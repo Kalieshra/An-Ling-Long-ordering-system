@@ -51,15 +51,18 @@ class OrderTrackConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         user = self.scope.get("user")
         if user is None or not user.is_authenticated:
+            await self.accept()
             await self.close(code=4401)
             return
 
         uuid = self.scope["url_route"]["kwargs"]["uuid"]
         order_customer_id = await self._get_order_customer_id(uuid)
         if order_customer_id is None:
+            await self.accept()
             await self.close(code=4404)
             return
         if order_customer_id != user.id:
+            await self.accept()
             await self.close(code=4403)
             return
 
