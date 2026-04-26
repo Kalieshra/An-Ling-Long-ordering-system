@@ -88,3 +88,84 @@ class TestKDSConsumerBroadcast:
         assert msg["event"] == "order.updated"
         assert msg["payload"]["status"] == "preparing"
         await comm.disconnect()
+
+
+@pytest.fixture
+def customer_user(django_user_model, db):
+    return django_user_model.objects.create_user(
+        email="alice@x.com", password="alice-pw-long-enough", role="customer"
+    )
+
+
+@pytest.fixture
+def order(customer_user, db):
+    from decimal import Decimal
+
+    from menu.models import Category, MenuItem
+    from orders.models import Order
+    from orders.services import create_order
+
+    cat = Category.objects.create(name="P", slug="p")
+    mi = MenuItem.objects.create(category=cat, name="MI", price=Decimal("10"))
+    return create_order(
+        cart=[{"menu_item": mi.id, "quantity": 1, "modifiers": []}],
+        customer=customer_user,
+        order_type=Order.Type.TAKEAWAY,
+        initial_status=Order.Status.PENDING,
+    )
+
+
+class TestOrderTrackConsumerAuth:
+    async def test_anonymous_rejected(self, order):
+        from django.contrib.auth.models import AnonymousUser
+        comm = WebsocketCommunicator(
+            _app_with_user(AnonymousUser()),
+            f"/ws/order/{order.uuid}/",
+        )
+        connected, close_code = await comm.connect()
+        assert connected is False
+        assert close_code == 4401
+
+    async def test_other_customer_rejected(self, order, django_user_model):
+        from asgiref.sync import sync_to_async
+        other = await sync_to_async(django_user_model.objects.create_user)(
+            email="other@x.com", password="other-pw-long-enough", role="customer"
+        )
+        comm = WebsocketCommunicator(
+            _app_with_user(other),
+            f"/ws/order/{order.uuid}/",
+        )
+        connected, close_code = await comm.connect()
+        assert connected is False
+        assert close_code == 4403
+
+    async def test_owner_accepted(self, order, customer_user):
+        comm = WebsocketCommunicator(
+            _app_with_user(customer_user),
+            f"/ws/order/{order.uuid}/",
+        )
+        connected, _ = await comm.connect()
+        assert connected is True
+        await comm.disconnect()
+
+
+class TestOrderTrackConsumerBroadcast:
+    async def test_owner_receives_order_updated(self, order, customer_user):
+        comm = WebsocketCommunicator(
+            _app_with_user(customer_user),
+            f"/ws/order/{order.uuid}/",
+        )
+        await comm.connect()
+
+        layer = get_channel_layer()
+        await layer.group_send(
+            f"order_{order.uuid}",
+            {
+                "type": "order.updated",
+                "payload": {"uuid": str(order.uuid), "status": "preparing"},
+            },
+        )
+        msg = await comm.receive_json_from(timeout=2)
+        assert msg["event"] == "order.updated"
+        assert msg["payload"]["status"] == "preparing"
+        await comm.disconnect()

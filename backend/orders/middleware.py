@@ -37,6 +37,6 @@ class JwtAuthMiddleware(BaseMiddleware):
         token_list = query.get("token", [])
         if token_list:
             scope["user"] = await _user_from_token(token_list[0])
-        else:
+        elif "user" not in scope:
             scope["user"] = AnonymousUser()
         return await super().__call__(scope, receive, send)
