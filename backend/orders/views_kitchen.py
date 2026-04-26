@@ -6,7 +6,7 @@ from django.views.generic import View
 
 from .exceptions import InvalidTransition
 from .models import Order
-from .services import transition_status
+from .services import update_order_status
 
 
 class _KitchenMixin(LoginRequiredMixin):
@@ -41,7 +41,7 @@ class KitchenStatusView(_KitchenMixin, View):
                 f"Cannot transition order {order.number} from {order.status} to {target!r}."
             )
         try:
-            transition_status(order, target, by_user=request.user)
+            update_order_status(order, target, by_user=request.user)
         except InvalidTransition as e:
             return HttpResponseBadRequest(str(e))
         return redirect("kitchen:home")
