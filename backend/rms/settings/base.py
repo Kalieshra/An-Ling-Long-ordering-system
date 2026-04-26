@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "django_filters",
+    "drf_spectacular",
     "channels",
     # local
     "accounts",
@@ -81,6 +82,20 @@ CHANNEL_LAYERS = {
     },
 }
 
+# Phase 5: Redis-backed cache for the featured-menu endpoint and any future
+# 60-second hot reads. The same Redis instance powers the channel layer
+# (db 1) — we use db 2 for application cache to keep namespaces clean.
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": env("CACHE_REDIS_URL", default="redis://redis:6379/2"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "KEY_PREFIX": "rms",
+    }
+}
+
 AUTH_USER_MODEL = "accounts.User"
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -117,6 +132,18 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    # Phase 5: throttling
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "30/min",
+        "user": "60/min",
+        "auth_login": "5/min",
+    },
+    # Phase 5: OpenAPI
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 # simplejwt with rotation + blacklist per spec §4.4
@@ -153,3 +180,11 @@ RMS_TAX_RATE = Decimal("0.14")
 # serves HTTP on 18000. In production a reverse proxy will collapse them
 # onto a single origin and we drop the env var to "" (empty → same-origin).
 RMS_WS_BASE_URL = env("RMS_WS_BASE_URL", default="ws://localhost:19000")
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Restaurant Management System (RMS) API",
+    "DESCRIPTION": "Customer + staff API for ordering, menu browsing, and order tracking.",
+    "VERSION": "0.5.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+}

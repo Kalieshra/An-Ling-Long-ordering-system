@@ -14,3 +14,9 @@ def pytest_configure(config):
         settings.CHANNEL_LAYERS = {
             "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
         }
+        # Phase 5: override Redis cache with locmem so tests don't require a
+        # reachable Redis instance. Throttle counters use this cache too, so
+        # throttling remains active (needed for Task 6 login-throttle tests).
+        settings.CACHES = {
+            "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}
+        }
