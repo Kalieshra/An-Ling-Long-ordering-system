@@ -2,7 +2,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import User
+from .models import SavedAddress, User
 
 
 @admin.register(User)
@@ -31,3 +31,11 @@ class UserAdmin(BaseUserAdmin):
         ),
     )
     filter_horizontal = ("groups", "user_permissions")
+
+
+@admin.register(SavedAddress)
+class SavedAddressAdmin(admin.ModelAdmin):
+    list_display = ("label", "user", "city", "phone", "is_default", "created_at")
+    list_filter = ("is_default", "city")
+    search_fields = ("label", "user__email", "line1", "city", "phone")
+    autocomplete_fields = ("user",)

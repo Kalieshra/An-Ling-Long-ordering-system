@@ -33,3 +33,36 @@ class User(AbstractUser):
 
     def is_role(self, role: "Role | str") -> bool:
         return self.role == role
+
+
+class SavedAddress(models.Model):
+    """A customer's saved delivery address. Set `is_default=True` to make it
+    the prefilled address on the next /api/v1/orders/ POST."""
+
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="saved_addresses",
+    )
+    label = models.CharField(max_length=40, help_text="e.g. Home, Office")
+    line1 = models.CharField(max_length=200)
+    line2 = models.CharField(max_length=200, blank=True)
+    city = models.CharField(max_length=80)
+    phone = models.CharField(max_length=20)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-is_default", "-created_at"]
+        indexes = [models.Index(fields=["user", "-is_default"])]
+
+    def __str__(self) -> str:
+        return f"{self.label} — {self.line1}"
+
+    def save(self, *args, **kwargs):
+        # Demote any other default address for this user when this one is default.
+        if self.is_default:
+            SavedAddress.objects.filter(user=self.user, is_default=True).exclude(
+                pk=self.pk
+            ).update(is_default=False)
+        super().save(*args, **kwargs)
