@@ -89,6 +89,39 @@ curl -X PATCH http://localhost:18000/api/v1/orders/<uuid>/cancel/ \
 | `/kitchen/` | GET | session (kitchen) | List of confirmed/preparing/ready (refresh-only — Phase 4 → WS) |
 | `/kitchen/orders/<uuid>/status/` | POST | session (kitchen) | `transition_status` |
 
+## Phase 4 — complete ✅
+
+| Area | Status |
+|---|---|
+| ASGI app upgraded with `ProtocolTypeRouter` (HTTP via Django, WS via Channels) | ✓ |
+| `KDSConsumer` (group `kds`, session-auth, kitchen-role only) | ✓ |
+| `OrderTrackConsumer` (group `order_<uuid>`, JWT-auth via `?token=...`) | ✓ |
+| `services.on_order_confirmed` + `services.update_order_status` broadcasters wired into `confirm_order` / kitchen view / cancel | ✓ |
+| Kitchen page rewrites the grid live from `order.new` / `order.updated` events | ✓ |
+| Reconnect with exponential backoff (capped at 30s) in the JS client | ✓ |
+| pytest-asyncio + `WebsocketCommunicator` consumer tests | ✓ |
+| Playwright marquee test: cashier confirms → kitchen browser shows card within 2s without reload | ✓ |
+
+### WebSocket endpoints
+
+| URL | Auth | Group | Notes |
+|---|---|---|---|
+| `ws://<host>:19000/ws/kds/` | session cookie + role=kitchen | `kds` | Receives `order.new` + `order.updated` |
+| `ws://<host>:19000/ws/order/<uuid>/?token=<jwt>` | JWT in query string | `order_<uuid>` | Receives `order.updated` for the customer's own order |
+
+Daphne runs on container port 9000 (host 19000). Gunicorn still serves HTTP on host 18000. Production will collapse them with a reverse proxy.
+
+### Customer order-track example (mobile-side)
+
+```js
+const token = "<your-jwt-access-token>";
+const ws = new WebSocket(`ws://api.example.com/ws/order/${orderUuid}/?token=${token}`);
+ws.onmessage = (e) => {
+  const evt = JSON.parse(e.data);
+  console.log(evt.event, evt.payload.status);   // e.g. "order.updated", "preparing"
+};
+```
+
 ## Local setup
 
 Prereqs: Docker 24+, Docker Compose v2, [uv](https://docs.astral.sh/uv/), Python 3.12+.
@@ -191,7 +224,6 @@ ADMIN is **strictly limited** to `/dashboard/` per the design. Admins do not aut
 
 | Phase | Goal |
 |---|---|
-| 4 | Real-time KDS via Django Channels + Redis (WebSocket). |
 | 5 | Customer API polish — profile, featured menu, throttling, OpenAPI schema. |
 | 6 | Docs, healthz, admin polish, handoff. |
 
