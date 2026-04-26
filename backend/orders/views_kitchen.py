@@ -1,4 +1,5 @@
 """Kitchen-side server-rendered list + status-transition POST."""
+from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
@@ -15,13 +16,21 @@ class _KitchenMixin(LoginRequiredMixin):
 
 class KitchenListView(_KitchenMixin, View):
     def get(self, request):
+        from .services import _serialise_for_broadcast  # internal use OK
         orders = (
             Order.objects.kitchen_visible()
             .select_related("table", "customer")
             .prefetch_related("items__menu_item", "items__modifiers__option")
             .order_by("created_at")
         )
-        return render(request, "kitchen/home.html", {"orders": orders})
+        initial_orders = [
+            _serialise_for_broadcast(o) | {"created_at": o.created_at.isoformat()}
+            for o in orders
+        ]
+        return render(request, "kitchen/home.html", {
+            "initial_orders": initial_orders,
+            "ws_base_url": settings.RMS_WS_BASE_URL,
+        })
 
 
 class KitchenStatusView(_KitchenMixin, View):

@@ -1,41 +1,19 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Kitchen — RMS{% endblock %}
 {% block content %}
-<h1>Kitchen Display</h1>
-<p class="text-muted">Showing confirmed / preparing / ready orders. Refresh to update — Phase 4 will switch to live updates.</p>
+<h1>Kitchen Display <small id="ws-banner" class="ms-2 text-muted small">connecting…</small></h1>
+<p class="text-muted">Live updates via WebSocket. New orders appear automatically; transitions reflect across all kitchen browsers.</p>
 
-{% if orders %}
-<div class="row g-3">
-  {% for o in orders %}
-  <div class="col-md-4">
-    <div class="card border-{% if o.status == 'preparing' %}warning{% elif o.status == 'ready' %}success{% else %}primary{% endif %}">
-      <div class="card-body">
-        <h5 class="card-title">{{ o.number }} — {{ o.get_order_type_display }}</h5>
-        <p class="card-subtitle text-muted small">{{ o.get_status_display }} · {{ o.created_at|date:"H:i" }}</p>
-        <ul class="list-unstyled small mt-2 mb-2">
-          {% for line in o.items.all %}
-          <li>{{ line.quantity }}× {{ line.menu_item.name }}
-            {% if line.modifiers.all %}<span class="text-muted">— {% for m in line.modifiers.all %}{{ m.option.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>{% endif %}
-            {% if line.notes %}<div class="text-info">📝 {{ line.notes }}</div>{% endif %}
-          </li>
-          {% endfor %}
-        </ul>
-        <form method="post" action="{% url 'kitchen:order-status' o.uuid %}">
-          {% csrf_token %}
-          {% if o.status == "confirmed" %}
-            <button name="status" value="preparing" class="btn btn-sm btn-warning">Start preparing</button>
-          {% elif o.status == "preparing" %}
-            <button name="status" value="ready" class="btn btn-sm btn-success">Mark ready</button>
-          {% elif o.status == "ready" %}
-            <button name="status" value="served" class="btn btn-sm btn-secondary">Mark served</button>
-          {% endif %}
-        </form>
-      </div>
-    </div>
-  </div>
-  {% endfor %}
+<form style="display:none">{% csrf_token %}</form>
+
+<div id="kitchen-root">
+  <div class="row g-3" id="kitchen-grid"></div>
 </div>
-{% else %}
-<p class="text-muted">No active orders.</p>
-{% endif %}
+
+{{ initial_orders|json_script:"kitchen-orders-data" }}
+<script>
+  document.body.dataset.wsBase = "{{ ws_base_url }}";
+</script>
+<script src="{% static 'js/kitchen.js' %}"></script>
 {% endblock %}
