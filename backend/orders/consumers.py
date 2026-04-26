@@ -20,6 +20,10 @@ class KDSConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         user = self.scope.get("user")
         if user is None or not user.is_authenticated or user.role != Role.KITCHEN:
+            # Accept first so the browser receives a proper close frame with the
+            # custom code (4401).  Closing before accept() produces an abnormal
+            # close (1006) which the client cannot distinguish from a network error.
+            await self.accept()
             await self.close(code=4401)
             return
         await self.channel_layer.group_add(self.GROUP, self.channel_name)
