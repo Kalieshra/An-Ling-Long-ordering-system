@@ -7,12 +7,24 @@ from .models import Role, User
 
 
 class UserSerializer(serializers.ModelSerializer):
+    """Summary serializer used in register/login responses."""
+
     name = serializers.CharField(source="first_name", read_only=True)
 
     class Meta:
         model = User
         fields = ("id", "email", "role", "name", "phone")
         read_only_fields = ("id", "role", "name")
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    """Serializer for the authenticated user's own profile.
+    `email` and `role` are read-only — the user cannot self-promote."""
+
+    class Meta:
+        model = User
+        fields = ("id", "email", "first_name", "last_name", "phone", "role")
+        read_only_fields = ("id", "email", "role")
 
 
 class RegisterSerializer(serializers.Serializer):

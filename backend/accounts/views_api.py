@@ -1,6 +1,7 @@
 """Customer-facing auth endpoints (JWT)."""
 from django.contrib.auth import authenticate
 from rest_framework import status
+from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -12,6 +13,7 @@ from .serializers import (
     LoginSerializer,
     PasswordChangeSerializer,
     RegisterSerializer,
+    UserProfileSerializer,
     UserSerializer,
 )
 
@@ -91,3 +93,12 @@ class PasswordChangeView(APIView):
         user.set_password(serializer.validated_data["new_password"])
         user.save(update_fields=["password"])
         return Response({"detail": "Password changed."}, status=status.HTTP_200_OK)
+
+
+class MeView(RetrieveUpdateAPIView):
+    """GET/PATCH /api/v1/me/ — the authenticated user's own profile."""
+
+    serializer_class = UserProfileSerializer
+
+    def get_object(self):
+        return self.request.user
