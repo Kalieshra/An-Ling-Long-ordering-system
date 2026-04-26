@@ -333,3 +333,138 @@ ADMIN is **strictly limited** to `/dashboard/` per the design. Admins do not aut
 | 6 | Docs, healthz, admin polish, handoff. |
 
 Each phase ships its own implementation plan and Playwright E2E suite.
+
+## Architecture
+
+```
+        ┌─────────────────────────────────────────────────┐
+        │   Browser (admin / cashier / kitchen)           │
+        │   JWT client (mobile app; today: tests/curl)    │
+        └──────────┬───────────────┬──────────────────────┘
+                   │ HTTPS/HTTP    │ WSS/WS
+                   ▼               ▼
+              ┌─────────┐    ┌──────────┐
+              │   web   │    │   asgi   │
+              │ Django  │    │ Daphne   │
+              │ Gunicorn│    │ Channels │
+              └────┬────┘    └────┬─────┘
+                   │              │
+                   └──────┬───────┘
+                          ▼
+                   ┌──────────────┐
+                   │  Postgres 16 │
+                   │     (db)     │
+                   └──────────────┘
+                   ┌──────────────┐
+                   │   Redis 7    │
+                   │ (channels +  │
+                   │  cache + DRF │
+                   │   throttle)  │
+                   └──────────────┘
+```
+
+In dev:
+- gunicorn serves HTTP on host port `18000` (container `8000`)
+- daphne serves WS on host port `19000` (container `9000`)
+- cookies are scoped by host so the same session cookie reaches both servers
+- Postgres is exposed on host `15432`, Redis on `16379`
+
+In production: a reverse proxy (nginx / Caddy) collapses 18000+19000 onto one origin and adds TLS.
+
+### How requests flow
+
+| URL prefix | Lands on | Owner |
+|---|---|---|
+| `/api/v1/auth/...` | DRF (web/gunicorn) | `accounts` |
+| `/api/v1/me/...` | DRF | `accounts` |
+| `/api/v1/menu/...` | DRF | `menu` |
+| `/api/v1/orders/...` | DRF | `orders` |
+| `/api/schema/...` | DRF (drf-spectacular) | `rms` |
+| `/dashboard/menu/...` | Django views | `menu` |
+| `/cashier/...` | Django views | `orders` |
+| `/kitchen/...` | Django views | `orders` |
+| `/login/`, `/logout/`, `/dashboard/` | Django views | `accounts` |
+| `/healthz/`, `/readyz/` | Plain views | `rms` |
+| `/ws/kds/`, `/ws/order/<uuid>/` | Channels (asgi/daphne) | `orders` |
+
+## How to add a new role
+
+The role enum lives in `accounts.models.Role`. To add (e.g.) a `MANAGER` role:
+
+1. **Append the enum value** in `backend/accounts/models.py`:
+
+```python
+class Role(models.TextChoices):
+    ADMIN = "admin", "Administrator"
+    CASHIER = "cashier", "Cashier"
+    KITCHEN = "kitchen", "Kitchen staff"
+    CUSTOMER = "customer", "Customer"
+    MANAGER = "manager", "Manager"   # NEW
+```
+
+2. **Generate the migration** — Django stores choices on the field, so this is a `models.AlterField` migration. `manage.py makemigrations accounts`.
+
+3. **Add a permission class** in `backend/accounts/permissions.py`:
+
+```python
+class IsManager(HasRole):
+    def __init__(self) -> None:
+        super().__init__(Role.MANAGER)
+```
+
+4. **Add a URL prefix gate** if managers get their own dashboard (e.g. `/manager/`). In `backend/rms/settings/base.py`:
+
+```python
+STAFF_PATH_ROLES = {
+    "/dashboard/": "admin",
+    "/cashier/": "cashier",
+    "/kitchen/": "kitchen",
+    "/manager/": "manager",   # NEW
+}
+```
+
+5. **Wire the new dashboard URL** in `backend/rms/urls.py` (e.g. `path("manager/", include("orders.urls_manager"))`).
+
+6. **Add the role to `ROLE_LANDING`** in `backend/accounts/views_web.py` so login redirects there.
+
+7. **Update `seed_demo`** to seed at least one user of the new role for E2E tests.
+
+8. **Add E2E coverage** that the new role can hit its own URL and gets 403 on others.
+
+## How the WebSocket broadcast works
+
+The principle: **state mutations only happen in `orders.services`**. Every transition (`confirm_order`, `update_order_status`, `cancel_order`) wraps a DB save with `transaction.on_commit(lambda: <broadcast>)`, so broadcasts fire AFTER the DB row is committed — no risk of a kitchen WS subscriber fetching the order and finding it not-yet-saved.
+
+```
+HTTP request   ┌─────────────────┐    ┌────────────────────┐
+─────────────►│  views layer    │──► │  orders.services   │
+              │ cashier/api/*   │    │  confirm_order(o)  │
+              └─────────────────┘    │  update_status(o)  │
+                                     │  cancel_order(o)   │
+                                     └─────────┬──────────┘
+                                               │ on_commit
+                                               ▼
+                          ┌──────────────────────────────────┐
+                          │ async_to_sync(layer.group_send)  │
+                          │  group="kds"        type=order.* │
+                          │  group=f"order_{u}" type=order.* │
+                          └────────────────┬─────────────────┘
+                                           │ Redis channel layer
+                                           ▼
+                          ┌──────────────────────────────────┐
+                          │  KDSConsumer (kitchen browsers)  │
+                          │  OrderTrackConsumer (mobile WS)  │
+                          │  → send_json to client           │
+                          └──────────────────────────────────┘
+```
+
+Channel groups:
+- `kds` — every authenticated kitchen-role browser joins this when they open `/kitchen/`. Receives `order.new` (when `confirm_order` fires) and `order.updated` (every state change).
+- `order_<uuid>` — the customer who owns the order joins this via `ws://host:19000/ws/order/<uuid>/?token=<jwt>`. Receives `order.updated` only.
+
+The consumers never query the DB themselves. They are dumb relay agents — auth check, group join, forward broadcasts. All business logic stays in `orders.services`.
+
+To add a new broadcast (e.g., a new event type `order.delivered`):
+1. Add the type in `_broadcast_status` in `orders.services`.
+2. Add a handler method on the consumer: `async def order_delivered(self, message): ...` (channels routes `{"type": "order.delivered"}` to `order_delivered`).
+3. Add a JS handler in `backend/static/js/kitchen.js` `applyEvent()`.
