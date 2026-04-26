@@ -185,3 +185,26 @@ class TestOrderTrackConsumerBroadcast:
         assert msg["event"] == "order.updated"
         assert msg["payload"]["status"] == "preparing"
         await comm.disconnect()
+
+
+class TestKDSReconnect:
+    async def test_reconnect_within_5s_still_receives_broadcasts(self, kitchen_user):
+        # First connection
+        comm1 = WebsocketCommunicator(_app_with_user(kitchen_user), "/ws/kds/")
+        connected, _ = await comm1.connect()
+        assert connected
+        await comm1.disconnect()
+
+        # Second connection (simulates browser reconnect)
+        comm2 = WebsocketCommunicator(_app_with_user(kitchen_user), "/ws/kds/")
+        connected2, _ = await comm2.connect()
+        assert connected2
+
+        layer = get_channel_layer()
+        await layer.group_send(
+            "kds",
+            {"type": "order.new", "payload": {"uuid": "x", "number": "X-1", "status": "confirmed"}},
+        )
+        msg = await comm2.receive_json_from(timeout=2)
+        assert msg["payload"]["number"] == "X-1"
+        await comm2.disconnect()
