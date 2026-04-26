@@ -3,7 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from .models import Role, User
+from .models import Role, SavedAddress, User
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -78,3 +78,10 @@ class PasswordChangeSerializer(serializers.Serializer):
         except DjangoValidationError as e:
             raise serializers.ValidationError(list(e.messages)) from e
         return value
+
+
+class SavedAddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SavedAddress
+        fields = ("id", "label", "line1", "line2", "city", "phone", "is_default", "created_at")
+        read_only_fields = ("id", "created_at")

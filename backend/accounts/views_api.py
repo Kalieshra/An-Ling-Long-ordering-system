@@ -5,14 +5,17 @@ from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from .models import SavedAddress
 from .serializers import (
     LoginSerializer,
     PasswordChangeSerializer,
     RegisterSerializer,
+    SavedAddressSerializer,
     UserProfileSerializer,
     UserSerializer,
 )
@@ -102,3 +105,16 @@ class MeView(RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class SavedAddressViewSet(ModelViewSet):
+    """CRUD for /api/v1/me/addresses/. Scoped to request.user."""
+
+    serializer_class = SavedAddressSerializer
+    pagination_class = None  # address books are tiny; flat list
+
+    def get_queryset(self):
+        return SavedAddress.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

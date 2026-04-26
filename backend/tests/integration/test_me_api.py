@@ -72,3 +72,70 @@ class TestMeProfile:
         c = APIClient()
         resp = c.get("/api/v1/me/")
         assert resp.status_code == 401
+
+
+class TestMeAddresses:
+    URL = "/api/v1/me/addresses/"
+
+    def test_list_initially_empty(self, auth_client):
+        resp = auth_client.get(self.URL)
+        assert resp.status_code == 200
+        # Pagination is disabled for this list (small data) — accept either flat list or paginated shape.
+        data = resp.data
+        if isinstance(data, dict):
+            data = data["results"]
+        assert data == []
+
+    def test_create_address(self, auth_client):
+        body = {
+            "label": "Home",
+            "line1": "10 Cairo St",
+            "city": "Zagazig",
+            "phone": "0100-1",
+            "is_default": True,
+        }
+        resp = auth_client.post(self.URL, body, format="json")
+        assert resp.status_code == 201, resp.data
+        assert resp.data["label"] == "Home"
+        assert resp.data["is_default"] is True
+
+    def test_list_returns_only_my_addresses(self, auth_client, customer, django_user_model):
+        from accounts.models import SavedAddress
+        SavedAddress.objects.create(
+            user=customer, label="Mine", line1="A", city="Z", phone="0",
+        )
+        other = django_user_model.objects.create_user(
+            email="bob@x.com", password="bob-pw-long-enough", role="customer",
+        )
+        SavedAddress.objects.create(
+            user=other, label="Theirs", line1="B", city="Z", phone="0",
+        )
+        resp = auth_client.get(self.URL)
+        rows = resp.data if isinstance(resp.data, list) else resp.data["results"]
+        labels = [a["label"] for a in rows]
+        assert "Mine" in labels
+        assert "Theirs" not in labels
+
+    def test_update_my_address(self, auth_client, customer):
+        from accounts.models import SavedAddress
+        a = SavedAddress.objects.create(user=customer, label="Home", line1="A", city="Z", phone="0")
+        resp = auth_client.patch(f"{self.URL}{a.id}/", {"label": "Renamed"}, format="json")
+        assert resp.status_code == 200
+        a.refresh_from_db()
+        assert a.label == "Renamed"
+
+    def test_delete_my_address(self, auth_client, customer):
+        from accounts.models import SavedAddress
+        a = SavedAddress.objects.create(user=customer, label="Home", line1="A", city="Z", phone="0")
+        resp = auth_client.delete(f"{self.URL}{a.id}/")
+        assert resp.status_code == 204
+        assert not SavedAddress.objects.filter(pk=a.id).exists()
+
+    def test_cannot_access_others_address(self, auth_client, django_user_model):
+        from accounts.models import SavedAddress
+        other = django_user_model.objects.create_user(
+            email="bob@x.com", password="bob-pw-long-enough", role="customer",
+        )
+        a = SavedAddress.objects.create(user=other, label="Other", line1="A", city="Z", phone="0")
+        resp = auth_client.get(f"{self.URL}{a.id}/")
+        assert resp.status_code == 404
