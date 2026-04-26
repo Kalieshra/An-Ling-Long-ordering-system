@@ -105,3 +105,58 @@ class TestUpdateOrderStatusBroadcasts:
 
         await kds.disconnect()
         await track.disconnect()
+
+
+class TestCashierConfirmBroadcasts:
+    async def test_cashier_confirm_pending_broadcasts(self, margherita, customer_user, kitchen_user):
+        from orders.models import Order
+        from orders.services import confirm_order, create_order
+
+        # customer-API style pending order
+        order = await _acall(
+            create_order,
+            cart=[{"menu_item": margherita.id, "quantity": 1, "modifiers": []}],
+            customer=customer_user,
+            order_type=Order.Type.TAKEAWAY,
+            initial_status=Order.Status.PENDING,
+        )
+
+        kds = WebsocketCommunicator(_app_with_user(kitchen_user), "/ws/kds/")
+        await kds.connect()
+
+        # Cashier clicks "confirm" on the pending panel — calls confirm_order
+        await _acall(confirm_order, order)
+
+        msg = await kds.receive_json_from(timeout=2)
+        assert msg["event"] == "order.new"
+        assert msg["payload"]["uuid"] == str(order.uuid)
+        await kds.disconnect()
+
+
+class TestCancelBroadcasts:
+    async def test_cancel_order_broadcasts_to_kds_and_customer(self, margherita, customer_user, kitchen_user):
+        from orders.models import Order
+        from orders.services import cancel_order, create_order
+
+        order = await _acall(
+            create_order,
+            cart=[{"menu_item": margherita.id, "quantity": 1, "modifiers": []}],
+            customer=customer_user,
+            order_type=Order.Type.TAKEAWAY,
+            initial_status=Order.Status.PENDING,
+        )
+
+        kds = WebsocketCommunicator(_app_with_user(kitchen_user), "/ws/kds/")
+        await kds.connect()
+        track = WebsocketCommunicator(_app_with_user(customer_user), f"/ws/order/{order.uuid}/")
+        await track.connect()
+
+        await _acall(cancel_order, order)
+
+        kds_msg = await kds.receive_json_from(timeout=2)
+        track_msg = await track.receive_json_from(timeout=2)
+        assert kds_msg["payload"]["status"] == "cancelled"
+        assert track_msg["payload"]["status"] == "cancelled"
+
+        await kds.disconnect()
+        await track.disconnect()
