@@ -1,4 +1,7 @@
 """Public read-only menu API."""
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_headers
 from rest_framework import generics, viewsets
 from rest_framework.permissions import AllowAny
 
@@ -37,3 +40,32 @@ class MenuItemViewSet(viewsets.ReadOnlyModelViewSet):
         if self.action == "retrieve":
             return MenuItemDetailSerializer
         return MenuItemListSerializer
+
+
+@method_decorator(cache_page(60), name="dispatch")
+@method_decorator(vary_on_headers("Accept-Language"), name="dispatch")
+class FeaturedMenuView(generics.ListAPIView):
+    """Items whose `tags` JSONB contains 'featured'. Cached 60s.
+
+    Anonymous-accessible; cache key is per (path, query, language).
+    """
+
+    serializer_class = MenuItemListSerializer
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    pagination_class = None
+
+    def get_queryset(self):
+        return (
+            MenuItem.objects.available()
+            .filter(tags__contains=["featured"])
+            .select_related("category")
+            .order_by("name")
+        )
+
+    def list(self, request, *args, **kwargs):
+        from rest_framework.response import Response
+
+        qs = self.get_queryset()
+        data = self.get_serializer(qs, many=True).data
+        return Response({"results": data})
