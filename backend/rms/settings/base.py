@@ -147,3 +147,9 @@ LOGIN_REDIRECT_URL = "/"  # overridden by role-redirect view
 from decimal import Decimal  # noqa: E402
 
 RMS_TAX_RATE = Decimal("0.14")
+
+# Phase 4: Browser WS client uses this to dial daphne. In dev daphne is
+# exposed on host port 19000 (via docker-compose.override.yml) while gunicorn
+# serves HTTP on 18000. In production a reverse proxy will collapse them
+# onto a single origin and we drop the env var to "" (empty → same-origin).
+RMS_WS_BASE_URL = env("RMS_WS_BASE_URL", default="ws://localhost:19000")
