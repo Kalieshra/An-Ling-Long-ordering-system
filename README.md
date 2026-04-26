@@ -122,6 +122,112 @@ ws.onmessage = (e) => {
 };
 ```
 
+## Phase 5 — complete ✅
+
+| Area | Status |
+|---|---|
+| `/api/v1/me/` profile (GET/PATCH; email + role read-only) | ✓ |
+| `/api/v1/me/addresses/` saved-address CRUD with single-default-per-user | ✓ |
+| `/api/v1/menu/featured/` cached 60s via django-redis | ✓ |
+| Login throttle 5/min via `LoginThrottle(scope='auth_login')`; default user throttle 60/min | ✓ |
+| CORS allow-list strict via `CORS_ALLOWED_ORIGINS` env var | ✓ |
+| OpenAPI schema at `/api/schema/` + Swagger UI at `/api/schema/swagger-ui/` (drf-spectacular) | ✓ |
+| `manage.py seed_demo` populates 3 cats + 12 dishes + 6 drinks + 5 modifier groups + 4 tables + 5 users | ✓ |
+| Phase 5 Playwright E2E + Phase 1-4 still green (31 e2e total) | ✓ |
+
+### Mobile developers — start here
+
+The customer-facing API is what your mobile (or web) app talks to.
+
+#### Demo credentials (run `manage.py seed_demo` first)
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `demo-admin@rms.local` | `admin-pw-long-enough` |
+| Cashier | `demo-cashier@rms.local` | `cashier-pw-long-enough` |
+| Kitchen | `demo-kitchen@rms.local` | `kitchen-pw-long-enough` |
+| Customer 1 | `demo-customer1@rms.local` | `customer-pw-long-enough` |
+| Customer 2 | `demo-customer2@rms.local` | `customer-pw-long-enough` |
+
+#### REST endpoint map
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/v1/auth/register/` | none | Register a customer |
+| POST | `/api/v1/auth/login/` | none (5/min) | Get access + refresh tokens |
+| POST | `/api/v1/auth/refresh/` | refresh | Rotate access token |
+| POST | `/api/v1/auth/logout/` | refresh | Blacklist refresh |
+| GET | `/api/v1/menu/categories/` | optional | List active categories |
+| GET | `/api/v1/menu/items/?category=&type=&search=&ordering=` | optional | Browse menu (paginated, fuzzy search) |
+| GET | `/api/v1/menu/items/<id>/` | optional | Item with nested modifier groups |
+| GET | `/api/v1/menu/featured/` | optional | Featured items (60s cache) |
+| GET, PATCH | `/api/v1/me/` | JWT | Profile (email + role read-only) |
+| GET, POST | `/api/v1/me/addresses/` | JWT | Saved-address book |
+| GET, PATCH, DELETE | `/api/v1/me/addresses/<id>/` | JWT | Single saved address |
+| POST | `/api/v1/orders/` | JWT customer | Place takeaway/delivery order |
+| GET | `/api/v1/orders/` | JWT customer | My orders, paginated |
+| GET | `/api/v1/orders/<uuid>/` | JWT customer | Order detail with snapshot |
+| PATCH | `/api/v1/orders/<uuid>/cancel/` | JWT customer | Cancel while pending (else 409) |
+| GET | `/api/schema/` | none | OpenAPI 3 YAML |
+| GET | `/api/schema/swagger-ui/` | none | Swagger UI explorer |
+
+#### WebSocket events (Phase 4)
+
+`ws://<host>:19000/ws/order/<uuid>/?token=<jwt>` — sends one or more JSON events:
+
+```json
+{ "event": "order.updated", "payload": { "uuid": "<uuid>", "status": "preparing" } }
+```
+
+Events seen by a customer for one order:
+- `order.updated` with `status="confirmed"` after the cashier accepts a pending order
+- `order.updated` with `status="preparing"` when the kitchen starts the order
+- `order.updated` with `status="ready"` when the order is ready for pickup/delivery
+- `order.updated` with `status="cancelled"` if cancelled
+
+#### Error envelope
+
+DRF default error shape — for validation:
+
+```json
+{ "field_name": ["Error message"] }
+```
+
+For domain conflicts (e.g. cancel-after-confirm):
+
+```json
+{ "detail": "Cannot move order ... from confirmed to cancelled." }
+```
+
+For throttling (HTTP 429):
+
+```json
+{ "detail": "Request was throttled. Expected available in 42 seconds." }
+```
+
+#### Quick happy path (curl)
+
+```bash
+HOST=http://localhost:18000
+
+# Register + login
+curl -X POST $HOST/api/v1/auth/register/ -H 'Content-Type: application/json' \
+     -d '{"email":"a@x.com","password":"a-pw-long-enough"}'
+TOKEN=$(curl -s -X POST $HOST/api/v1/auth/login/ -H 'Content-Type: application/json' \
+        -d '{"email":"a@x.com","password":"a-pw-long-enough"}' | jq -r .access)
+
+# Browse + place
+curl $HOST/api/v1/menu/featured/
+ITEM=$(curl -s $HOST/api/v1/menu/items/?category=pizzas | jq '.results[0].id')
+ORDER=$(curl -s -X POST $HOST/api/v1/orders/ -H "Authorization: Bearer $TOKEN" \
+        -H 'Content-Type: application/json' \
+        -d "{\"type\":\"delivery\",\"delivery_address\":\"X\",\"items\":[{\"menu_item\":$ITEM,\"quantity\":1}]}")
+UUID=$(echo $ORDER | jq -r .uuid)
+
+# Track via WS
+wscat -c "ws://localhost:19000/ws/order/$UUID/?token=$TOKEN"
+```
+
 ## Local setup
 
 Prereqs: Docker 24+, Docker Compose v2, [uv](https://docs.astral.sh/uv/), Python 3.12+.
@@ -224,7 +330,6 @@ ADMIN is **strictly limited** to `/dashboard/` per the design. Admins do not aut
 
 | Phase | Goal |
 |---|---|
-| 5 | Customer API polish — profile, featured menu, throttling, OpenAPI schema. |
 | 6 | Docs, healthz, admin polish, handoff. |
 
 Each phase ships its own implementation plan and Playwright E2E suite.
