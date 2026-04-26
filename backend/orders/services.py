@@ -8,6 +8,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from decimal import ROUND_HALF_UP, Decimal
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -17,6 +19,55 @@ from .exceptions import InvalidTransition, OrderValidationError
 from .models import Order, OrderItem, OrderItemModifier, Table
 
 CENTS = Decimal("0.01")
+
+
+def _serialise_for_broadcast(order: Order) -> dict:
+    """Compact JSON payload sent over the wire — no PII beyond what the kitchen
+    already sees from the API/template."""
+    return {
+        "uuid": str(order.uuid),
+        "number": order.number,
+        "status": order.status,
+        "order_type": order.order_type,
+        "table": order.table.number if order.table_id else None,
+        "total": str(order.total),
+        "items": [
+            {
+                "name": (it.menu_item.name if it.menu_item_id else None),
+                "quantity": it.quantity,
+                "notes": it.notes,
+                "modifiers": [m.option.name for m in it.modifiers.all()],
+            }
+            for it in order.items.all()
+        ],
+    }
+
+
+def on_order_confirmed(order: Order) -> None:
+    """Fan out a new-order notification to the kitchen group. Called from
+    `confirm_order`; both cashier-driven and customer-API-driven flows hit
+    this single path so the KDS sees identical broadcasts."""
+    layer = get_channel_layer()
+    if layer is None:
+        return
+    payload = _serialise_for_broadcast(order)
+    async_to_sync(layer.group_send)("kds", {"type": "order.new", "payload": payload})
+
+
+def _broadcast_status(order: Order) -> None:
+    """Fan out an order.updated to KDS group + per-customer group (if any)."""
+    layer = get_channel_layer()
+    if layer is None:
+        return
+    payload = _serialise_for_broadcast(order)
+    async_to_sync(layer.group_send)(
+        "kds", {"type": "order.updated", "payload": payload}
+    )
+    if order.customer_id:
+        async_to_sync(layer.group_send)(
+            f"order_{order.uuid}",
+            {"type": "order.updated", "payload": payload},
+        )
 
 
 def _q(amount: Decimal) -> Decimal:
@@ -193,11 +244,13 @@ def _assert_transition(order: Order, target: str) -> None:
 
 @transaction.atomic
 def confirm_order(order: Order) -> Order:
-    """Move a DRAFT or PENDING order to CONFIRMED. Phase 4 will broadcast here."""
+    """Move a DRAFT or PENDING order to CONFIRMED. Broadcasts to KDS via
+    `on_order_confirmed`."""
     _assert_transition(order, Order.Status.CONFIRMED)
     order.status = Order.Status.CONFIRMED
     order.confirmed_at = timezone.now()
     order.save(update_fields=["status", "confirmed_at"])
+    transaction.on_commit(lambda: on_order_confirmed(order))
     return order
 
 
@@ -216,6 +269,7 @@ def cancel_order(order: Order) -> Order:
     _assert_transition(order, Order.Status.CANCELLED)
     order.status = Order.Status.CANCELLED
     order.save(update_fields=["status"])
+    transaction.on_commit(lambda: _broadcast_status(order))
     return order
 
 
@@ -232,4 +286,15 @@ def transition_status(order: Order, target: str, *, by_user) -> Order:
         order.served_at = timezone.now()
         fields.append("served_at")
     order.save(update_fields=fields)
+    return order
+
+
+def update_order_status(order: Order, target: str, *, by_user) -> Order:
+    """Public-facing transition: advances state AND broadcasts. Use from views.
+
+    Internally calls `transition_status` (the lower-level, broadcast-free
+    function used by tests) followed by `_broadcast_status` on commit.
+    """
+    transition_status(order, target, by_user=by_user)
+    transaction.on_commit(lambda: _broadcast_status(order))
     return order
