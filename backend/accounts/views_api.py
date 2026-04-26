@@ -19,6 +19,7 @@ from .serializers import (
     UserProfileSerializer,
     UserSerializer,
 )
+from .throttling import LoginThrottle
 
 
 def _tokens_for(user):
@@ -41,6 +42,7 @@ class RegisterView(APIView):
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [LoginThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
