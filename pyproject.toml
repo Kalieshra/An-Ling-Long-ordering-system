@@ -29,6 +29,7 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.7",
     "ipython>=8.28",
+    "websockets>=16.0",
 ]
 
 [tool.pytest.ini_options]
