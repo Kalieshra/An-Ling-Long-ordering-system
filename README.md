@@ -135,6 +135,31 @@ ws.onmessage = (e) => {
 | `manage.py seed_demo` populates 3 cats + 12 dishes + 6 drinks + 5 modifier groups + 4 tables + 5 users | ✓ |
 | Phase 5 Playwright E2E + Phase 1-4 still green (31 e2e total) | ✓ |
 
+## Phase 6 — complete ✅
+
+| Area | Status |
+|---|---|
+| `RequestIdMiddleware` stamps every request + response with `X-Request-ID` | ✓ |
+| Structured JSON logging via `structlog` (console renderer in dev, JSON in prod) | ✓ |
+| `/healthz/` (DB + cache ping) + `/readyz/` (process up) | ✓ |
+| Friendly 403 (role-aware) / 404 (role-aware nav) / 500 (request-id reference) pages | ✓ |
+| Admin polish: read-only timestamps + computed fields across User, SavedAddress, MenuItem, Ingredient, Order, OrderItem | ✓ |
+| `make seed` Makefile target | ✓ |
+| README architecture diagram + "how to add a role" + "how the WebSocket broadcast works" | ✓ |
+| Phase 6 smoke E2E (full register → order → pay → cook → track) | ✓ |
+| `/healthz/` returns 503 when Redis is stopped (verified by `docker compose stop redis` E2E) | ✓ |
+| All Phase 1-6 tests pass in CI in one job | ✓ |
+
+### MVP definition of done — all green ✅
+
+1. ✅ `docker compose up` brings the stack up, all health checks green
+2. ✅ `make seed` populates demo data
+3. ✅ Admin can fully CRUD the menu from `/dashboard/menu/`
+4. ✅ Cashier can place a dine-in order from `/cashier/`; within 2 seconds a kitchen user at `/kitchen/` sees the new order card without refreshing
+5. ✅ A customer registered via API can `POST /api/v1/orders/` a delivery order, connect to `ws/order/<uuid>/`, and observe status transitions in real time
+6. ✅ Cashier cannot open `/dashboard/` or `/kitchen/`; kitchen user cannot open `/cashier/`; customer JWT cannot call any staff URL (all 401/403)
+7. ✅ Every phase's Playwright E2E suite passes in CI, and the Phase 6 smoke suite passes end-to-end in one run
+
 ### Mobile developers — start here
 
 The customer-facing API is what your mobile (or web) app talks to.
@@ -328,11 +353,7 @@ ADMIN is **strictly limited** to `/dashboard/` per the design. Admins do not aut
 
 ## What's next
 
-| Phase | Goal |
-|---|---|
-| 6 | Docs, healthz, admin polish, handoff. |
-
-Each phase ships its own implementation plan and Playwright E2E suite.
+The MVP is complete. Post-MVP follow-ups (per the spec): Paymob payment integration, inventory auto-deduction, Arabic RTL/i18n, loyalty points, analytics, shift management, Celery jobs, production hardening (nginx + TLS + secrets + monitoring + backups). Each is a clean follow-up spec.
 
 ## Architecture
 
