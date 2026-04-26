@@ -38,6 +38,7 @@ class MenuItemAdmin(admin.ModelAdmin):
     list_editable = ("is_available",)
     inlines = [ModifierGroupInline, RecipeInline]
     ordering = ("category__display_order", "name")
+    readonly_fields = ("created_at", "updated_at")
 
 
 @admin.register(ModifierGroup)
@@ -53,6 +54,7 @@ class IngredientAdmin(admin.ModelAdmin):
     list_display = ("name", "unit", "stock_qty", "low_threshold", "is_low_display", "supplier")
     list_filter = ("unit",)
     search_fields = ("name", "supplier")
+    readonly_fields = ("updated_at",)
 
     @admin.display(boolean=True, description="Low?")
     def is_low_display(self, obj):

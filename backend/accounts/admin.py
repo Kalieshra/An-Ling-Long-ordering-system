@@ -39,3 +39,4 @@ class SavedAddressAdmin(admin.ModelAdmin):
     list_filter = ("is_default", "city")
     search_fields = ("label", "user__email", "line1", "city", "phone")
     autocomplete_fields = ("user",)
+    readonly_fields = ("created_at",)
