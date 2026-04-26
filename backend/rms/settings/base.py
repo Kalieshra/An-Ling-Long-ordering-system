@@ -40,6 +40,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "rms.middleware.RequestIdMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -188,3 +189,48 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
 }
+
+# Phase 6: structured JSON logging. Goes to stdout for both web (gunicorn)
+# and asgi (daphne) so docker compose / k8s log drivers can consume it.
+import logging  # noqa: E402, F401
+
+import structlog  # noqa: E402
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {
+            "()": "structlog.stdlib.ProcessorFormatter",
+            "processor": structlog.processors.JSONRenderer(),
+        },
+        "console": {
+            "()": "structlog.stdlib.ProcessorFormatter",
+            "processor": structlog.dev.ConsoleRenderer(),
+        },
+    },
+    "handlers": {
+        "default": {
+            "class": "logging.StreamHandler",
+            "formatter": "json" if not DEBUG else "console",
+        },
+    },
+    "loggers": {
+        "": {"handlers": ["default"], "level": "INFO"},
+        "django": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "django.request": {"handlers": ["default"], "level": "WARNING", "propagate": False},
+        "rms": {"handlers": ["default"], "level": "INFO", "propagate": False},
+    },
+}
+
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
